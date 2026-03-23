@@ -1,0 +1,12 @@
+# Build output
+build/
+
+# Local Gradle cache
+.gradle/
+
+# IDE — local IDE state (not your config)
+.idea/
+.intellijPlatform/
+
+# Gradle wrapper jar (binary, can be regenerated)
+gradle/wrapper/gradle-wrapper.jar
