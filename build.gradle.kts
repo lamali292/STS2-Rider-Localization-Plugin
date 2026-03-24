@@ -53,7 +53,7 @@ tasks {
 tasks.register<JavaExec>("runPreview") {
     group = "application"
     // Remove .kt and add Kt to the end of the filename
-    mainClass.set("com.downfall.cardloc.TestLauncherKt")
+    mainClass.set("com.lamali.cardloc.TestLauncherKt")
     classpath = sourceSets["main"].runtimeClasspath
 
     // This forces the preview to use Java 21 so it matches your Kotlin target

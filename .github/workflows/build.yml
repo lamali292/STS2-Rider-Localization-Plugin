@@ -23,6 +23,9 @@ jobs:
       - name: Set version in build.gradle.kts
         run: sed -i "s/version = \".*\"/version = \"$VERSION\"/" build.gradle.kts
 
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
       - name: Build plugin
         run: ./gradlew buildPlugin
 
