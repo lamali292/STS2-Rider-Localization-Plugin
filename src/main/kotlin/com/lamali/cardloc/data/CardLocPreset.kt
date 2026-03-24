@@ -1,4 +1,4 @@
-﻿package com.downfall.cardloc.data
+﻿package com.lamali.cardloc.data
 
 data class CardLocPreset(
     val id: String,

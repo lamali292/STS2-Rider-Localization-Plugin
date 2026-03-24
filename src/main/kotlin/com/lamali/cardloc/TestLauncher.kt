@@ -1,6 +1,6 @@
-﻿package com.downfall.cardloc
+﻿package com.lamali.cardloc
 
-import com.downfall.cardloc.editor.CardLocPanel
+import com.lamali.cardloc.editor.CardLocPanel
 import javax.swing.*
 import java.awt.Dimension
 

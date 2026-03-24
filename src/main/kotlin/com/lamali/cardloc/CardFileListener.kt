@@ -1,6 +1,6 @@
-package com.downfall.cardloc
+package com.lamali.cardloc
 
-import com.downfall.cardloc.editor.CardLocPanel
+import com.lamali.cardloc.editor.CardLocPanel
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.wm.ToolWindowManager

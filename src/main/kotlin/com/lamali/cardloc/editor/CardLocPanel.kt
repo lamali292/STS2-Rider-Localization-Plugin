@@ -1,8 +1,8 @@
-﻿package com.downfall.cardloc.editor
+﻿package com.lamali.cardloc.editor
 
-import com.downfall.cardloc.data.CardLocPreset
-import com.downfall.cardloc.CardLocService
-import com.downfall.cardloc.FieldRow
+import com.lamali.cardloc.data.CardLocPreset
+import com.lamali.cardloc.CardLocService
+import com.lamali.cardloc.FieldRow
 import java.awt.*
 import javax.swing.*
 

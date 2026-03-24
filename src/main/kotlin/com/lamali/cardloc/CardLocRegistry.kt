@@ -1,7 +1,7 @@
-﻿package com.downfall.cardloc
+﻿package com.lamali.cardloc
 
-import com.downfall.cardloc.data.CardLocConfig
-import com.downfall.cardloc.data.CardLocPreset
+import com.lamali.cardloc.data.CardLocConfig
+import com.lamali.cardloc.data.CardLocPreset
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File

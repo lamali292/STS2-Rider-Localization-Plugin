@@ -5,8 +5,8 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.3.0"
 }
 
-group = "com.downfall"
-version = "1.0.0"
+group = "com.lamali"
+version = "1.0.1"
 
 // --- ADD THIS BLOCK ---
 java {
@@ -26,8 +26,11 @@ repositories {
 dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     intellijPlatform {
-        // Note: You are pointing to Rider. Ensure Rider 2025.3.3 actually uses a JDK 21+
-        local("C:/Program Files/JetBrains/JetBrains Rider 2025.3.3")
+        if (System.getenv("CI") != null) {
+            rider("2025.1")
+        } else {
+            local("C:/Program Files/JetBrains/JetBrains Rider 2025.3.3")
+        }
     }
 }
 

@@ -1,8 +1,8 @@
-﻿package com.downfall.cardloc
+﻿package com.lamali.cardloc
 
-import com.downfall.cardloc.editor.TagDefs
-import com.downfall.cardloc.editor.TagToolbar
-import com.downfall.cardloc.editor.UI
+import com.lamali.cardloc.editor.TagDefs
+import com.lamali.cardloc.editor.TagToolbar
+import com.lamali.cardloc.editor.UI
 import java.awt.*
 import java.awt.event.*
 import javax.swing.*

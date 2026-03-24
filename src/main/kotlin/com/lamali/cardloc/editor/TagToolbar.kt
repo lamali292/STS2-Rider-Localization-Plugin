@@ -1,4 +1,4 @@
-﻿package com.downfall.cardloc.editor
+﻿package com.lamali.cardloc.editor
 
 import java.awt.*
 import javax.swing.*

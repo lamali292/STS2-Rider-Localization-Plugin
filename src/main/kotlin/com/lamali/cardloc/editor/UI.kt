@@ -1,7 +1,6 @@
-﻿package com.downfall.cardloc.editor
+﻿package com.lamali.cardloc.editor
 
 import java.awt.Color
-import javax.swing.BorderFactory
 
 object UI {
     val bg = Color(40, 40, 40)

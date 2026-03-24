@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>com.downfall.cardloc</id>
+    <id>com.lamali.cardloc</id>
     <name>Downfall Card Localization</name>
     <version>1.0.0</version>
     <vendor>Downfall</vendor>
@@ -11,17 +11,17 @@
         <toolWindow
                 id="STS2 Localization"
                 anchor="right"
-                factoryClass="com.downfall.cardloc.CardLocToolWindowFactory"/>
+                factoryClass="com.lamali.cardloc.CardLocToolWindowFactory"/>
 
         <fileEditorManagerListener
-                implementation="com.downfall.cardloc.CardFileListener"/>
+                implementation="com.lamali.cardloc.CardFileListener"/>
 
         <postStartupActivity
-                implementation="com.downfall.cardloc.CardLocStartupActivity"/>
+                implementation="com.lamali.cardloc.CardLocStartupActivity"/>
     </extensions>
     <projectListeners>
         <listener
-                class="com.downfall.cardloc.CardFileListener"
+                class="com.lamali.cardloc.CardFileListener"
                 topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
 </idea-plugin>

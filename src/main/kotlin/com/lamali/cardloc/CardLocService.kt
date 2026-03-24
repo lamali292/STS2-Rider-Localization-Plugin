@@ -1,7 +1,7 @@
-package com.downfall.cardloc
+package com.lamali.cardloc
 
-import com.downfall.cardloc.data.CardLocPreset
-import com.downfall.cardloc.data.FieldDef
+import com.lamali.cardloc.data.CardLocPreset
+import com.lamali.cardloc.data.FieldDef
 import com.google.gson.*
 import java.io.File
 import java.util.regex.Pattern
