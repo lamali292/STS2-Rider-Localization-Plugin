@@ -27,7 +27,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     intellijPlatform {
         if (System.getenv("CI") != null) {
-            rider("2025.1")
+            rider("2025.1", useInstaller = false)
         } else {
             local("C:/Program Files/JetBrains/JetBrains Rider 2025.3.3")
         }
