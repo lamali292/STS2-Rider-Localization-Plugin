@@ -75,17 +75,14 @@ object CardLocRegistry {
     }
 
     fun detect(source: String): CardLocPreset? {
-        val preset = config?.presets?.firstOrNull { preset ->
-            preset.markers.any { source.contains(it) }
+        val classLine = Regex("""public\s+(?:sealed\s+|abstract\s+)?class\s+\w+\s*(?:\([^)]*\))?\s*:\s*(.+)""")
+            .find(source)?.groupValues?.get(1) ?: return null
+
+        return config?.presets?.firstOrNull { preset ->
+            preset.markers.any { classLine.contains(it) }
         }
-        if (preset != null) {
-            println("CardLoc: detect() matched preset='${preset.id}'")
-        } else {
-            val checkedMarkers = config?.presets?.flatMap { it.markers } ?: emptyList()
-            println("CardLoc: detect() no match — checked markers: $checkedMarkers")
-        }
-        return preset
     }
+
 
     fun detectWithClass(source: String): Pair<CardLocPreset, String>? {
         val preset = detect(source) ?: return null
