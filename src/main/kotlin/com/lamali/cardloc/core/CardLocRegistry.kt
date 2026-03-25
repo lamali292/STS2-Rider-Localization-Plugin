@@ -1,10 +1,11 @@
-﻿package com.lamali.cardloc
+﻿package com.lamali.cardloc.core
 
 import com.lamali.cardloc.data.CardLocConfig
 import com.lamali.cardloc.data.CardLocPreset
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File
+import java.util.regex.Pattern
 
 object CardLocRegistry {
 
@@ -22,7 +23,7 @@ object CardLocRegistry {
             return CAMEL_TO_SNAKE.matcher(id).replaceAll("_$1").uppercase() + "-"
         }
 
-    private val CAMEL_TO_SNAKE = java.util.regex.Pattern.compile("(?<!^)([A-Z])")
+    private val CAMEL_TO_SNAKE = Pattern.compile("(?<!^)([A-Z])")
 
     private val DEFAULTS_JSON = """
     {
@@ -50,15 +51,16 @@ object CardLocRegistry {
     """.trimIndent()
 
     fun initialize(projectBasePath: String? = null) {
-        val projectFile = projectBasePath?.let { File(it, "cardloc-presets.json") }
-        if (projectFile != null && projectFile.exists()) {
-            val json = projectFile.readText();
-            loadFromJson(json)
-            println("CardLoc: Loading presets from ${projectFile.absolutePath}")
-        } else {
-            println("CardLoc: No cardloc-presets.json found")
-        }
+        val path = projectBasePath ?: return
+        val projectFile = File(path, "cardloc-presets.json")
 
+        if (projectFile.exists()) {
+            val json = projectFile.readText()
+            loadFromJson(json)
+        } else {
+            // If the user deletes their custom config, revert to defaults
+            loadFromJson(DEFAULTS_JSON)
+        }
     }
 
     private fun loadFromJson(json: String) {

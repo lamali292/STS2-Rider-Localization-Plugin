@@ -1,4 +1,4 @@
-﻿package com.lamali.cardloc.editor
+﻿package com.lamali.cardloc.editor.ui
 
 import java.awt.Color
 

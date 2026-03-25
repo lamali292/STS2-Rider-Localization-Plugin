@@ -1,5 +1,4 @@
-﻿package com.lamali.cardloc
-
+﻿import com.lamali.cardloc.core.CardLocRegistry
 import com.lamali.cardloc.editor.CardLocPanel
 import javax.swing.*
 import java.awt.Dimension

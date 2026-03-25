@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.lamali.cardloc</id>
     <name>Downfall Card Localization</name>
-    <version>1.0.0</version>
+    <version>1.0.2</version>
     <vendor>Downfall</vendor>
     <description>Auto-opens a localization editor when editing card classes.</description>
 
@@ -11,17 +11,19 @@
         <toolWindow
                 id="STS2 Localization"
                 anchor="right"
-                factoryClass="com.lamali.cardloc.CardLocToolWindowFactory"/>
-
-        <fileEditorManagerListener
-                implementation="com.lamali.cardloc.CardFileListener"/>
+                factoryClass="com.lamali.cardloc.idea.CardLocToolWindowFactory"/>
 
         <postStartupActivity
-                implementation="com.lamali.cardloc.CardLocStartupActivity"/>
+                implementation="com.lamali.cardloc.core.CardLocStartupActivity"/>
     </extensions>
+
     <projectListeners>
         <listener
-                class="com.lamali.cardloc.CardFileListener"
+                class="com.lamali.cardloc.core.CardFileListener"
                 topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
+
+        <listener
+                class="com.lamali.cardloc.core.CardLocConfigWatcher"
+                topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
     </projectListeners>
 </idea-plugin>

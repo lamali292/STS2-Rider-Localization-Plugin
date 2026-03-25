@@ -1,4 +1,4 @@
-﻿package com.lamali.cardloc
+﻿package com.lamali.cardloc.core
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.StartupActivity

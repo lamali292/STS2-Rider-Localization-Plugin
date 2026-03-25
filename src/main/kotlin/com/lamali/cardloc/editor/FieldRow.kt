@@ -1,13 +1,68 @@
-﻿package com.lamali.cardloc
+﻿package com.lamali.cardloc.editor
 
-import com.lamali.cardloc.editor.TagDefs
-import com.lamali.cardloc.editor.TagToolbar
-import com.lamali.cardloc.editor.UI
+import com.lamali.cardloc.editor.ui.TagDefs
+import com.lamali.cardloc.editor.ui.TagToolbar
+import com.lamali.cardloc.editor.ui.UI
 import java.awt.*
 import java.awt.event.*
 import javax.swing.*
 import javax.swing.event.*
 import javax.swing.text.*
+
+class AutoScalingEditor : JTextPane() {
+    init {
+        isOpaque = false
+        putClientProperty("JEditorPane.honorDisplayProperties", true)
+    }
+
+    override fun getScrollableTracksViewportWidth(): Boolean = true
+    override fun getScrollableTracksViewportHeight(): Boolean = false
+
+    override fun getPreferredSize(): Dimension {
+        val parentWidth = parent?.width ?: 0
+        if (parentWidth > 0) {
+            setSize(parentWidth, Int.MAX_VALUE)
+        }
+        val d = super.getPreferredSize()
+        return Dimension(10, d.height.coerceAtLeast(45))
+    }
+}
+class SymbolViewFactory(val delegate: ViewFactory) : ViewFactory {
+    override fun create(elem: Element): View {
+        return if (elem.name == AbstractDocument.ParagraphElementName) {
+            NewlineSymbolParagraphView(elem)
+        } else delegate.create(elem)
+    }
+}
+
+class NewlineSymbolParagraphView(elem: Element) : ParagraphView(elem) {
+    override fun paint(g: Graphics, allocation: Shape) {
+        super.paint(g, allocation)
+        val doc = document
+        val lastCharIdx = endOffset - 1
+        if (lastCharIdx >= 0 && lastCharIdx < doc.length - 1) {
+            try {
+                if (doc.getText(lastCharIdx, 1) == "\n") {
+                    val shape = modelToView(lastCharIdx, allocation, Position.Bias.Forward) ?: return
+                    val r = shape.bounds
+                    val g2d = g as Graphics2D
+
+                    val symbolFont = Font(Font.MONOSPACED, Font.PLAIN, 12)
+
+                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+                    g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+                    g2d.color = UI.subtleText.darker()
+                    g2d.font = symbolFont
+                    val x = r.x + 2
+                    val y = r.y + r.height - 5
+
+                    g2d.drawString("¬", x, y)
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+}
 
 class FieldRow(
     val fieldName: String,
@@ -15,25 +70,51 @@ class FieldRow(
     val onUpdate: () -> Unit
 ) : JPanel() {
 
-    val editor = JTextPane()
+    val editor = AutoScalingEditor()
     val text: String get() = generateGameString()
 
+    override fun getMinimumSize(): Dimension {
+        return Dimension(50, super.getMinimumSize().height)
+    }
     init {
-        layout = BoxLayout(this, BoxLayout.Y_AXIS)
+        layout = BorderLayout()
         background = UI.panel
         alignmentX = LEFT_ALIGNMENT
-        border = BorderFactory.createEmptyBorder(8, 0, 0, 0)
+        border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
 
-        add(label(fieldName.uppercase()))
-        add(Box.createVerticalStrut(5))
-        add(autoHeightScroll(editor))
+        add(JLabel(fieldName.uppercase()).apply {
+            foreground = UI.subtleText
+            font = font.deriveFont(Font.BOLD, 10f)
+            border = BorderFactory.createEmptyBorder(0, 0, 5, 0)
+        }, BorderLayout.NORTH)
+
+        // IMPORTANT: Set Kit before parsing text
+        editor.editorKit = object : StyledEditorKit() {
+            override fun getViewFactory(): ViewFactory = SymbolViewFactory(super.getViewFactory())
+        }
 
         setupEditor(initialValue)
 
+        val scroll = JScrollPane(editor).apply {
+            border = BorderFactory.createLineBorder(UI.border)
+            viewport.background = UI.previewBg
+            // Force the scrollpane to not allow horizontal scrolling
+            horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+            verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
+        }
+        add(scroll, BorderLayout.CENTER)
+
         editor.styledDocument.addDocumentListener(object : DocumentListener {
-            override fun insertUpdate(e: DocumentEvent) = onUpdate()
-            override fun removeUpdate(e: DocumentEvent) = onUpdate()
-            override fun changedUpdate(e: DocumentEvent) = onUpdate()
+            private fun trigger() {
+                // Revalidate the row AND the container so it grows vertically
+                editor.revalidate()
+                this@FieldRow.revalidate()
+                parent?.revalidate()
+                onUpdate()
+            }
+            override fun insertUpdate(e: DocumentEvent) = trigger()
+            override fun removeUpdate(e: DocumentEvent) = trigger()
+            override fun changedUpdate(e: DocumentEvent) = trigger()
         })
     }
 
@@ -45,16 +126,12 @@ class FieldRow(
             font = Font("Segoe UI", Font.PLAIN, 14)
             margin = Insets(8, 8, 8, 8)
 
-            // Handle the "Enter" key to reset formatting to white
             addKeyListener(object : KeyAdapter() {
                 override fun keyReleased(e: KeyEvent) {
                     if (e.keyCode == KeyEvent.VK_ENTER) {
-                        val blank = SimpleAttributeSet()
-                        StyleConstants.setForeground(blank, Color.WHITE)
-                        StyleConstants.setBold(blank, false)
-                        StyleConstants.setUnderline(blank, false)
-
-                        // Reset the typing attributes for the new line
+                        val blank = SimpleAttributeSet().apply {
+                            StyleConstants.setForeground(this, Color.WHITE)
+                        }
                         inputAttributes.removeAttributes(inputAttributes)
                         inputAttributes.addAttributes(blank)
                         setCharacterAttributes(blank, false)
@@ -92,9 +169,8 @@ class FieldRow(
                 }
 
                 partText.forEach { char ->
-                    if (char == '\n') {
-                        sb.append("\n")
-                    } else {
+                    if (char == '\n') sb.append("\n")
+                    else {
                         activeTags.forEach { sb.append("[$it]") }
                         sb.append(char)
                         activeTags.asReversed().forEach { sb.append("[/$it]") }
@@ -102,7 +178,7 @@ class FieldRow(
                 }
                 i = end
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return editor.text.replace("\n", "\\n")
         }
 
@@ -119,6 +195,7 @@ class FieldRow(
         doc.remove(0, doc.length)
         val tokens = Regex("""\[/?[^]]+]|[^\[]+""").findAll(processed)
         val styleStack = mutableListOf(SimpleAttributeSet())
+
         tokens.forEach { match ->
             val token = match.value
             if (token.startsWith("[/")) {
@@ -126,8 +203,7 @@ class FieldRow(
             } else if (token.startsWith("[")) {
                 val tagName = token.substring(1, token.length - 1)
                 val newStyle = SimpleAttributeSet(styleStack.last())
-                val def = TagDefs.map[tagName]
-                if (def != null) {
+                TagDefs.map[tagName]?.let { def ->
                     if (def.color != null) StyleConstants.setForeground(newStyle, def.color)
                     if (def.bold) StyleConstants.setBold(newStyle, true)
                     if (tagName == "u") StyleConstants.setUnderline(newStyle, true)
@@ -137,20 +213,6 @@ class FieldRow(
                 doc.insertString(doc.length, token, styleStack.last())
             }
         }
-    }
-
-    private fun label(text: String) = JLabel(text).apply {
-        foreground = UI.subtleText
-        font = font.deriveFont(Font.BOLD, 10f)
-        alignmentX = LEFT_ALIGNMENT
-    }
-
-    private fun autoHeightScroll(c: JComponent) = JScrollPane(c).apply {
-        border = BorderFactory.createLineBorder(UI.border)
-        viewport.background = c.background
-        horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
-        verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
-        alignmentX = LEFT_ALIGNMENT
     }
 
     fun connectToolbar(toolbar: TagToolbar) {

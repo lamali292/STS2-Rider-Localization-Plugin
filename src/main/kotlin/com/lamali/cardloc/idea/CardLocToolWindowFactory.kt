@@ -1,10 +1,11 @@
-package com.lamali.cardloc
+﻿package com.lamali.cardloc.idea
 
-import com.lamali.cardloc.editor.CardLocPanel
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
+import com.lamali.cardloc.core.CardLocRegistry
+import com.lamali.cardloc.editor.CardLocPanel
 
 class CardLocToolWindowFactory : ToolWindowFactory {
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {

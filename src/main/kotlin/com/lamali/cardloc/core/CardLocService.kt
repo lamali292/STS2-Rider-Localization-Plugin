@@ -1,4 +1,4 @@
-package com.lamali.cardloc
+package com.lamali.cardloc.core
 
 import com.lamali.cardloc.data.CardLocPreset
 import com.lamali.cardloc.data.FieldDef

@@ -1,5 +1,6 @@
-package com.lamali.cardloc
+package com.lamali.cardloc.core
 
+import com.intellij.openapi.application.ApplicationManager
 import com.lamali.cardloc.editor.CardLocPanel
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
@@ -13,7 +14,7 @@ class CardFileListener : FileEditorManagerListener {
 
         val project = event.manager.project
 
-        com.intellij.openapi.application.ApplicationManager.getApplication().executeOnPooledThread {
+        ApplicationManager.getApplication().executeOnPooledThread {
             val source = try {
                 String(file.contentsToByteArray())
             } catch (e: Exception) {
@@ -26,7 +27,7 @@ class CardFileListener : FileEditorManagerListener {
             val key = CardLocService.toKey(className)
             val existing = CardLocService.load(project, key, preset)
 
-            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().invokeLater {
                 val tw = ToolWindowManager.getInstance(project).getToolWindow("STS2 Localization") ?: run {
                     println("CardLoc: Tool window 'STS2 Localization' not found!"); return@invokeLater
                 }
