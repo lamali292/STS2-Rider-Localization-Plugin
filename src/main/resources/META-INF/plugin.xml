@@ -13,8 +13,7 @@
                 anchor="right"
                 factoryClass="com.lamali.cardloc.idea.CardLocToolWindowFactory"/>
 
-        <postStartupActivity
-                implementation="com.lamali.cardloc.core.CardLocStartupActivity"/>
+        <projectActivity implementation="com.lamali.cardloc.core.CardLocStartupActivity"/>
     </extensions>
 
     <projectListeners>

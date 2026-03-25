@@ -4,9 +4,14 @@ import com.lamali.cardloc.data.CardLocPreset
 import com.lamali.cardloc.core.CardLocService
 import com.lamali.cardloc.editor.ui.UI
 import java.awt.*
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import javax.swing.*
 
-
+/**
+ * The main Orchestrator for the Card Localization Editor.
+ * Adapts its layout based on whether it is docked at the bottom or the side.
+ */
 class CardLocPanel : JPanel(BorderLayout()) {
     private var projectRef: Any? = null
     private var currentKey = ""
@@ -17,23 +22,52 @@ class CardLocPanel : JPanel(BorderLayout()) {
     private val fieldsPanel = JPanel(GridBagLayout()).apply { background = UI.bg }
     private val rows = mutableListOf<FieldRow>()
 
+    private val scrollFields = JScrollPane(fieldsPanel).apply {
+        border = null
+        horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+    }
+
+    private val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollFields, preview).apply {
+        isContinuousLayout = true
+        border = null
+        dividerSize = 8
+        setResizeWeight(0.7)
+    }
+
     init {
         background = UI.bg
-        add(header, BorderLayout.NORTH)
-
-        val scrollFields = JScrollPane(fieldsPanel).apply {
-            border = null
-            horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
-        }
-
-        val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollFields, preview).apply {
-            isContinuousLayout = true
-            border = null
-            dividerSize = 8
-            setResizeWeight(0.7)
-            dividerLocation = 400
-        }
         add(splitPane, BorderLayout.CENTER)
+        addComponentListener(object : ComponentAdapter() {
+            override fun componentResized(e: ComponentEvent) {
+                applyAdaptiveLayout()
+            }
+        })
+    }
+
+    private fun applyAdaptiveLayout() {
+        val isWide = width > height && width > 600
+        remove(header)
+
+        if (isWide) {
+            // BOTTOM DOCK: Toolbar on the left, everything else left-to-right
+            header.updateOrientation(vertical = true)
+            add(header, BorderLayout.WEST)
+            splitPane.orientation = JSplitPane.HORIZONTAL_SPLIT
+            if (splitPane.dividerLocation < 100 || splitPane.dividerLocation > width - 100) {
+                splitPane.dividerLocation = (width * 0.7).toInt()
+            }
+        } else {
+            // SIDE DOCK: Toolbar on top, everything else top-to-bottom
+            header.updateOrientation(vertical = false)
+            add(header, BorderLayout.NORTH)
+            splitPane.orientation = JSplitPane.VERTICAL_SPLIT
+            if (splitPane.dividerLocation < 100 || splitPane.dividerLocation > height - 100) {
+                splitPane.dividerLocation = (height * 0.7).toInt()
+            }
+        }
+
+        revalidate()
+        repaint()
     }
 
     fun load(project: Any?, keyPrefix: String, existing: Map<String, String>, preset: CardLocPreset) {
@@ -60,25 +94,43 @@ class CardLocPanel : JPanel(BorderLayout()) {
         rows.add(row)
 
         val gbc = GridBagConstraints().apply {
-            gridx = 0; gridy = rows.size; weightx = 1.0; fill = GridBagConstraints.HORIZONTAL; anchor = GridBagConstraints.NORTH
+            gridx = 0
+            gridy = rows.size
+            weightx = 1.0
+            fill = GridBagConstraints.HORIZONTAL
+            anchor = GridBagConstraints.NORTH
+            insets = Insets(0, 0, 2, 0)
         }
         fieldsPanel.add(row, gbc)
     }
 
     private fun refreshUI() {
-        val glueGbc = GridBagConstraints().apply { gridx = 0; gridy = 999; weighty = 1.0; fill = GridBagConstraints.BOTH }
+        val glueGbc = GridBagConstraints().apply {
+            gridx = 0
+            gridy = 999
+            weightx = 1.0
+            weighty = 1.0
+            fill = GridBagConstraints.BOTH
+        }
         fieldsPanel.add(Box.createVerticalGlue(), glueGbc)
 
         preview.update(rows)
-        revalidate(); repaint()
+        revalidate()
+        repaint()
     }
 
     private fun save() {
         val project = projectRef ?: return
         val preset = currentPreset ?: return
         val data = rows.associate { "$currentKey.${it.fieldName}" to it.text }
+
         runCatching { CardLocService.save(project, currentKey, data, preset) }
-            .onSuccess { JOptionPane.showMessageDialog(this, "Saved!") }
+            .onSuccess {
+                JOptionPane.showMessageDialog(this, "Saved successfully!")
+            }
+            .onFailure { e ->
+                JOptionPane.showMessageDialog(this, "Error saving: ${e.message}")
+            }
     }
 
     private fun promptAddField() {
@@ -133,5 +185,4 @@ class CardLocPanel : JPanel(BorderLayout()) {
             JOptionPane.showMessageDialog(this, "Failed to reload: ${e.message}")
         }
     }
-
 }
