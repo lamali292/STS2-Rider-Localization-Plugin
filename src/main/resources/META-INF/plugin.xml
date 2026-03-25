@@ -1,16 +1,19 @@
 <idea-plugin>
     <id>com.lamali.cardloc</id>
     <name>Downfall Card Localization</name>
-    <version>1.0.2</version>
+    <version>1.0.4</version>
     <vendor>Downfall</vendor>
     <description>Auto-opens a localization editor when editing card classes.</description>
 
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <projectService serviceImplementation="com.lamali.cardloc.core.CardLocRegistry"/>
+
         <toolWindow
-                id="STS2 Localization"
+                id="StS2 Localization Editor"
                 anchor="right"
+                icon="AllIcons.Actions.Edit"
                 factoryClass="com.lamali.cardloc.idea.CardLocToolWindowFactory"/>
 
         <projectActivity implementation="com.lamali.cardloc.core.CardLocStartupActivity"/>

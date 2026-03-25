@@ -1,7 +1,9 @@
 ﻿package com.lamali.cardloc.editor
 
-import com.lamali.cardloc.data.CardLocPreset
+import com.intellij.openapi.project.Project
+import com.lamali.cardloc.core.CardLocRegistry
 import com.lamali.cardloc.core.CardLocService
+import com.lamali.cardloc.data.CardLocPreset
 import com.lamali.cardloc.editor.ui.UI
 import java.awt.*
 import java.awt.event.ComponentAdapter
@@ -10,12 +12,15 @@ import javax.swing.*
 
 /**
  * The main Orchestrator for the Card Localization Editor.
- * Adapts its layout based on whether it is docked at the bottom or the side.
+ * Now Project-aware to support the Service-based Registry.
  */
-class CardLocPanel : JPanel(BorderLayout()) {
-    private var projectRef: Any? = null
+class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
+
     private var currentKey = ""
     private var currentPreset: CardLocPreset? = null
+
+    // Fetch the project-specific registry
+    private val registry = project.getService(CardLocRegistry::class.java)
 
     private val header = CardLocHeader(::reload, ::promptAddField, ::save)
     private val preview = CardLocPreview()
@@ -25,18 +30,21 @@ class CardLocPanel : JPanel(BorderLayout()) {
     private val scrollFields = JScrollPane(fieldsPanel).apply {
         border = null
         horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
+        verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED
     }
 
     private val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, scrollFields, preview).apply {
         isContinuousLayout = true
         border = null
         dividerSize = 8
-        setResizeWeight(0.7)
+        setResizeWeight(0.6)
     }
 
     init {
         background = UI.bg
         add(splitPane, BorderLayout.CENTER)
+
+        // Listen for resize to switch between Side-dock (Vertical) and Bottom-dock (Horizontal)
         addComponentListener(object : ComponentAdapter() {
             override fun componentResized(e: ComponentEvent) {
                 applyAdaptiveLayout()
@@ -46,23 +54,25 @@ class CardLocPanel : JPanel(BorderLayout()) {
 
     private fun applyAdaptiveLayout() {
         val isWide = width > height && width > 600
+
+        // Temporarily remove to re-add in correct position
         remove(header)
 
         if (isWide) {
-            // BOTTOM DOCK: Toolbar on the left, everything else left-to-right
+            // BOTTOM DOCK: Toolbar on the left, horizontal split
             header.updateOrientation(vertical = true)
             add(header, BorderLayout.WEST)
-            splitPane.orientation = JSplitPane.HORIZONTAL_SPLIT
-            if (splitPane.dividerLocation < 100 || splitPane.dividerLocation > width - 100) {
-                splitPane.dividerLocation = (width * 0.7).toInt()
+            if (splitPane.orientation != JSplitPane.HORIZONTAL_SPLIT) {
+                splitPane.orientation = JSplitPane.HORIZONTAL_SPLIT
+                splitPane.dividerLocation = (width * 0.6).toInt()
             }
         } else {
-            // SIDE DOCK: Toolbar on top, everything else top-to-bottom
+            // SIDE DOCK: Toolbar on top, vertical split
             header.updateOrientation(vertical = false)
             add(header, BorderLayout.NORTH)
-            splitPane.orientation = JSplitPane.VERTICAL_SPLIT
-            if (splitPane.dividerLocation < 100 || splitPane.dividerLocation > height - 100) {
-                splitPane.dividerLocation = (height * 0.7).toInt()
+            if (splitPane.orientation != JSplitPane.VERTICAL_SPLIT) {
+                splitPane.orientation = JSplitPane.VERTICAL_SPLIT
+                splitPane.dividerLocation = (height * 0.6).toInt()
             }
         }
 
@@ -70,8 +80,10 @@ class CardLocPanel : JPanel(BorderLayout()) {
         repaint()
     }
 
-    fun load(project: Any?, keyPrefix: String, existing: Map<String, String>, preset: CardLocPreset) {
-        this.projectRef = project
+    /**
+     * Call this to populate the editor with data.
+     */
+    fun load(keyPrefix: String, existing: Map<String, String>, preset: CardLocPreset) {
         this.currentKey = keyPrefix
         this.currentPreset = preset
         header.setKey(keyPrefix)
@@ -79,6 +91,7 @@ class CardLocPanel : JPanel(BorderLayout()) {
         fieldsPanel.removeAll()
         rows.clear()
 
+        // Group fields: mandatory ones from preset + any existing custom ones
         val keys = (preset.fields.filter { !it.optional }.map { it.name } +
                 existing.keys.map { it.removePrefix("$keyPrefix.") }
                     .filter { suffix -> preset.fields.any { it.name == suffix } }).distinct()
@@ -105,14 +118,10 @@ class CardLocPanel : JPanel(BorderLayout()) {
     }
 
     private fun refreshUI() {
-        val glueGbc = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 999
-            weightx = 1.0
-            weighty = 1.0
-            fill = GridBagConstraints.BOTH
-        }
-        fieldsPanel.add(Box.createVerticalGlue(), glueGbc)
+        // Add a spacer at the bottom so rows stay pinned to the top
+        fieldsPanel.add(Box.createVerticalGlue(), GridBagConstraints().apply {
+            gridx = 0; gridy = 999; weightx = 1.0; weighty = 1.0; fill = GridBagConstraints.BOTH
+        })
 
         preview.update(rows)
         revalidate()
@@ -120,16 +129,18 @@ class CardLocPanel : JPanel(BorderLayout()) {
     }
 
     private fun save() {
-        val project = projectRef ?: return
         val preset = currentPreset ?: return
+        if (!registry.isInitialized()) return
+
         val data = rows.associate { "$currentKey.${it.fieldName}" to it.text }
 
         runCatching { CardLocService.save(project, currentKey, data, preset) }
             .onSuccess {
-                JOptionPane.showMessageDialog(this, "Saved successfully!")
+                // Consider a non-blocking toast or status bar message here instead of a dialog
+                println("CardLoc: Saved $currentKey")
             }
             .onFailure { e ->
-                JOptionPane.showMessageDialog(this, "Error saving: ${e.message}")
+                JOptionPane.showMessageDialog(this, "Error saving: ${e.message}", "Save Error", JOptionPane.ERROR_MESSAGE)
             }
     }
 
@@ -141,28 +152,17 @@ class CardLocPanel : JPanel(BorderLayout()) {
             .map { it.name }
             .toTypedArray()
 
-        val comboBox = JComboBox(suggestions).apply {
-            isEditable = true
-            selectedIndex = if (suggestions.isNotEmpty()) 0 else -1
-        }
-
+        val comboBox = JComboBox(suggestions).apply { isEditable = true }
         val panel = JPanel(GridLayout(0, 1, 0, 5)).apply {
             add(JLabel("Select or type a new suffix:"))
             add(comboBox)
         }
 
-        val result = JOptionPane.showConfirmDialog(
-            this, panel, "Add Optional Field",
-            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE
-        )
+        val result = JOptionPane.showConfirmDialog(this, panel, "Add Field", JOptionPane.OK_CANCEL_OPTION)
 
         if (result == JOptionPane.OK_OPTION) {
-            val input = comboBox.selectedItem?.toString()?.trim()
-            if (!input.isNullOrBlank()) {
-                if (rows.any { it.fieldName == input }) {
-                    JOptionPane.showMessageDialog(this, "Field '$input' already exists.")
-                    return
-                }
+            val input = comboBox.selectedItem?.toString()?.trim() ?: ""
+            if (input.isNotBlank() && rows.none { it.fieldName == input }) {
                 addRow(input, "")
                 refreshUI()
             }
@@ -170,19 +170,15 @@ class CardLocPanel : JPanel(BorderLayout()) {
     }
 
     private fun reload() {
-        val project = projectRef ?: run {
-            JOptionPane.showMessageDialog(this, "No project active — cannot reload.")
-            return
-        }
         val preset = currentPreset ?: return
         if (currentKey.isBlank()) return
 
         runCatching {
             CardLocService.load(project, currentKey, preset)
         }.onSuccess { existingData ->
-            load(project, currentKey, existingData, preset)
+            load(currentKey, existingData, preset)
         }.onFailure { e ->
-            JOptionPane.showMessageDialog(this, "Failed to reload: ${e.message}")
+            JOptionPane.showMessageDialog(this, "Reload failed: ${e.message}")
         }
     }
 }

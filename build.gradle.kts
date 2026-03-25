@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.lamali"
-version = "1.0.1"
+version = "1.0.4"
 
 // --- ADD THIS BLOCK ---
 java {

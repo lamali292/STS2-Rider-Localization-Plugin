@@ -1,5 +1,6 @@
 package com.lamali.cardloc.core
 
+import com.intellij.openapi.project.Project
 import com.lamali.cardloc.data.CardLocPreset
 import com.lamali.cardloc.data.FieldDef
 import com.google.gson.*
@@ -9,29 +10,40 @@ import java.util.regex.Pattern
 object CardLocService {
 
     private val CAMEL_TO_SNAKE = Pattern.compile("(?<!^)([A-Z])")
+    private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
 
-    fun toKey(className: String): String =
-        CardLocRegistry.keyPrefix + CAMEL_TO_SNAKE.matcher(className).replaceAll("_$1").uppercase()
+    /**
+     * Now requires the Project instance to fetch the project-specific Registry.
+     */
+    fun toKey(project: Project, className: String): String? {
+        val registry = project.getService(CardLocRegistry::class.java)
+        val prefix = registry.keyPrefix ?: return null
+        val snake = CAMEL_TO_SNAKE.matcher(className).replaceAll("_$1").uppercase()
+        return "$prefix$snake"
+    }
 
-    private fun getBasePath(project: Any): String? = try {
-        project.javaClass.getMethod("getBasePath").invoke(project) as? String
-    } catch (e: Exception) { null }
+    /**
+     * Resolved directly from the project instance safely.
+     */
+    private fun resolveFieldFile(project: Project, fieldDef: FieldDef): File? {
+        val basePath = project.basePath ?: return null
+        val registry = project.getService(CardLocRegistry::class.java)
+        val locBase = registry.localizationBase ?: return null
+        return File(basePath, "$locBase/${fieldDef.file}")
+    }
 
-    private fun resolveFieldFile(basePath: String, fieldDef: FieldDef): File =
-        File(basePath, "${CardLocRegistry.localizationBase}/${fieldDef.file}")
-
-    fun load(project: Any, keyPrefix: String, preset: CardLocPreset): LinkedHashMap<String, String> {
-        val basePath = getBasePath(project) ?: return LinkedHashMap()
+    fun load(project: Project, keyPrefix: String, preset: CardLocPreset): LinkedHashMap<String, String> {
         val result = LinkedHashMap<String, String>()
 
         preset.fields
             .groupBy { it.file }
             .forEach { (_, fieldsInFile) ->
-                val file = resolveFieldFile(basePath, fieldsInFile.first())
+                val file = resolveFieldFile(project, fieldsInFile.first()) ?: return@forEach
                 if (!file.exists()) return@forEach
 
+                val jsonText = file.readText().trimStart('\uFEFF')
                 val obj = runCatching {
-                    JsonParser.parseString(file.readText()).asJsonObject
+                    JsonParser.parseString(jsonText).asJsonObject
                 }.getOrNull() ?: return@forEach
 
                 fieldsInFile.forEach { fieldDef ->
@@ -43,50 +55,37 @@ object CardLocService {
         return result
     }
 
-    fun save(project: Any, keyPrefix: String, values: Map<String, String>, preset: CardLocPreset) {
-        val basePath = getBasePath(project) ?: run {
-            println("CardLoc Error: Could not resolve project base path.")
-            return
-        }
-
+    fun save(project: Project, keyPrefix: String, values: Map<String, String>, preset: CardLocPreset) {
+        // Group values by the target file defined in the preset
         val byFile = mutableMapOf<String, MutableMap<String, String>>()
+
         values.forEach { (fullKey, value) ->
-            val suffix = fullKey.removePrefix("$keyPrefix.")
-            val fieldDef = preset.fields.find { it.name == suffix } ?: run {
-                println("CardLoc Warning: No field def found for '$suffix', skipping.")
-                return@forEach
-            }
+            val fieldName = fullKey.substringAfterLast(".")
+            val fieldDef = preset.fields.find { it.name == fieldName } ?: return@forEach
             byFile.getOrPut(fieldDef.file) { mutableMapOf() }[fullKey] = value
         }
 
-        byFile.forEach { (_, entries) ->
-            val suffix = entries.keys.first().removePrefix("$keyPrefix.")
-            val fieldDef = preset.fields.find { it.name == suffix } ?: return@forEach
-            val file = resolveFieldFile(basePath, fieldDef)
+        byFile.forEach { (fileName, entries) ->
+            val fieldDef = preset.fields.first { it.file == fileName }
+            val file = resolveFieldFile(project, fieldDef) ?: return@forEach
             saveToFile(file, entries)
         }
     }
 
-    fun saveToFile(file: File, values: Map<String, String>) {
+    private fun saveToFile(file: File, values: Map<String, String>) {
         file.parentFile?.mkdirs()
 
         val obj: JsonObject = runCatching {
-            if (file.exists() && file.length() > 0)
-                JsonParser.parseString(file.readText()).asJsonObject
-            else JsonObject()
-        }.getOrElse {
-            println("CardLoc: Bad JSON in ${file.name}, starting fresh.")
-            JsonObject()
-        }
+            if (file.exists() && file.length() > 0) {
+                JsonParser.parseString(file.readText().trimStart('\uFEFF')).asJsonObject
+            } else JsonObject()
+        }.getOrElse { JsonObject() }
 
+        // Merge new values into existing JSON object
         values.forEach { (k, v) -> obj.addProperty(k, v) }
 
         runCatching {
-            val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
             file.writeText(gson.toJson(obj))
-        }.onFailure {
-
-            it.printStackTrace()
-        }
+        }.onFailure { it.printStackTrace() }
     }
 }
