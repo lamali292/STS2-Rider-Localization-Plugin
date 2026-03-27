@@ -18,6 +18,12 @@ Add a `cardloc-presets.json` file to your project root.
 
 ## Example -- cardloc-presets.json
 
+It defines which classes the plugin recognises, as well as which localisation fields map to which JSON files.
+
+For example, if you have a custom card class, you need to add it there.
+
+You can also add relics or potions.
+
 <details>
 <summary>cardloc-presets.json</summary>
   
