@@ -1,6 +1,10 @@
 ﻿package com.lamali.cardloc.editor
 
-import com.lamali.cardloc.editor.logic.TagParser
+import com.intellij.ui.JBColor
+import com.intellij.ui.components.JBLabel
+import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
+import com.lamali.cardloc.core.TagParser
 import com.lamali.cardloc.editor.ui.*
 import java.awt.*
 import java.awt.event.*
@@ -13,46 +17,48 @@ class FieldRow(
     val fieldName: String,
     initialValue: String,
     private val onUpdate: () -> Unit
-) : JPanel() {
+) : JPanel(BorderLayout()) {
 
     val editor = AutoScalingEditor()
     val text: String get() = TagParser.toGameString(editor.styledDocument)
 
     init {
-        layout = BorderLayout()
-        background = UI.panel
-        border = BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        background = UIUtil.getPanelBackground()
+        border = JBUI.Borders.empty(8, 12)
+        val titleLabel = JBLabel(fieldName.uppercase()).apply {
+            foreground = UIUtil.getContextHelpForeground()
+            font = JBUI.Fonts.label(11f).asBold()
+            border = JBUI.Borders.emptyBottom(4)
+        }
+        add(titleLabel, BorderLayout.NORTH)
 
-        // Title Label
-        add(JLabel(fieldName.uppercase()).apply {
-            foreground = UI.subtleText
-            font = font.deriveFont(Font.BOLD, 10f)
-            border = BorderFactory.createEmptyBorder(0, 0, 5, 0)
-        }, BorderLayout.NORTH)
-
-        // Editor Setup
         editor.editorKit = object : StyledEditorKit() {
             override fun getViewFactory() = SymbolViewFactory(super.getViewFactory())
         }
 
+        editor.putClientProperty("ActionMap.LocalEventHandling", true)
+
         setupEditorStyles()
         TagParser.parseAndSet(editor.styledDocument, initialValue)
 
-        // ScrollPane wrapping
         val scroll = JScrollPane(editor).apply {
-            border = BorderFactory.createLineBorder(UI.border)
-            viewport.background = UI.previewBg
+            val borderColor = JBColor.namedColor("Component.borderColor", JBColor(0xC9C9C9, 0x646464))
+            border = JBUI.Borders.customLine(borderColor, 1)
+
+            viewport.background = UIUtil.getTextFieldBackground()
             horizontalScrollBarPolicy = ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER
             verticalScrollBarPolicy = ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER
         }
         add(scroll, BorderLayout.CENTER)
 
-        // Change Listener
         editor.styledDocument.addDocumentListener(object : DocumentListener {
-            fun trigger() {
-                editor.revalidate()
-                this@FieldRow.revalidate()
-                onUpdate()
+            private fun trigger() {
+                // Use invokeLater to avoid potential mutation race conditions
+                SwingUtilities.invokeLater {
+                    editor.revalidate()
+                    this@FieldRow.revalidate()
+                    onUpdate()
+                }
             }
             override fun insertUpdate(e: DocumentEvent) = trigger()
             override fun removeUpdate(e: DocumentEvent) = trigger()
@@ -62,17 +68,21 @@ class FieldRow(
 
     private fun setupEditorStyles() {
         editor.apply {
-            background = UI.previewBg
-            foreground = UI.text
-            caretColor = Color.WHITE
-            font = Font("Segoe UI", Font.PLAIN, 14)
-            margin = Insets(8, 8, 8, 8)
+            background = UIUtil.getTextFieldBackground()
+            foreground = UIUtil.getTextFieldForeground()
+            caretColor = UIUtil.getTextFieldForeground()
+
+            font = UIUtil.getLabelFont()
+            margin = JBUI.insets(6)
         }
     }
 
     fun connectToolbar(toolbar: TagToolbar) {
         editor.addFocusListener(object : FocusAdapter() {
-            override fun focusGained(e: FocusEvent) = toolbar.setActiveEditor(editor)
+            override fun focusGained(e: FocusEvent) {
+                toolbar.setActiveEditor(editor)
+                editor.requestFocusInWindow()
+            }
         })
     }
 }

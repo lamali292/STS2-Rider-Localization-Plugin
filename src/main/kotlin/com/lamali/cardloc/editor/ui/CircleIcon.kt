@@ -8,11 +8,9 @@ class CircleIcon(private val color: Color, private val size: Int = 12) : Icon {
         val g2 = g.create() as Graphics2D
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
 
-        // Fill
         g2.color = color
         g2.fillOval(x, y, size, size)
 
-        // Optional: Subtle outline so white circles don't vanish
         if (color == Color.WHITE) {
             g2.color = Color(255, 255, 255, 100)
             g2.drawOval(x, y, size, size)

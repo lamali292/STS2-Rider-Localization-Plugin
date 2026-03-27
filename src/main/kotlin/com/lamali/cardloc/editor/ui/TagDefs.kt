@@ -14,11 +14,6 @@ object TagDefs {
         val isFormat: Boolean = false
     )
 
-    // ── Tag groups ───────────────────────────────────────────────────────────
-    val colorNames = setOf("gold","aqua","blue","green","orange","pink","purple","red")
-    val animNames  = setOf("jitter","sine","fade_in","fly_in","thinky_dots")
-
-    // ── Definitions ──────────────────────────────────────────────────────────
     val color = listOf(
         TagDef("gold",   "Gold",   Color(0xEFC851)),
         TagDef("aqua",   "Aqua",   Color(0x2AEBBE)),
@@ -44,7 +39,6 @@ object TagDefs {
         TagDef("u", "U",                isFormat = true),
     )
 
-    // ── Lookup map ───────────────────────────────────────────────────────────
     val map: Map<String, TagDef> =
         (color + anim + format).associateBy { it.tag }
 }

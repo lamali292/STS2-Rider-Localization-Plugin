@@ -1,5 +1,9 @@
 ﻿package com.lamali.cardloc.editor.ui
 
+import com.intellij.icons.AllIcons
+import com.intellij.ui.JBColor
+import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import java.awt.*
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -11,7 +15,7 @@ class TagToolbar : JPanel() {
     private var activeEditor: JTextPane? = null
 
     init {
-        background = UI.bgAlt
+        background = JBColor.namedColor("ActionButton.hoverBackground", UIUtil.getPanelBackground())
         updateOrientation(false)
     }
 
@@ -21,82 +25,54 @@ class TagToolbar : JPanel() {
 
     fun updateOrientation(vertical: Boolean) {
         removeAll()
+        val borderColor = JBColor.namedColor("Borders.color", JBColor(0xC9C9C9, 0x646464))
+
         if (vertical) {
-            layout = FlowLayout(FlowLayout.CENTER, 2, 2)
-            preferredSize = Dimension(95, 0)
-            buildSidebarUI()
+            // SIDEBAR: Single Column
+            layout = FlowLayout(FlowLayout.CENTER, 4, 4)
+            preferredSize = JBUI.size(36, 0)
+            border = JBUI.Borders.customLine(borderColor, 0, 0, 0, 1) // Right line
         } else {
-            layout = BoxLayout(this, BoxLayout.X_AXIS)
-            preferredSize = Dimension(Int.MAX_VALUE, 64)
-            buildHorizontalUI()
+            // BOTTOM: Single Row
+            layout = FlowLayout(FlowLayout.LEFT, 4, 2)
+            preferredSize = JBUI.size(0, 36)
+            border = JBUI.Borders.customLine(borderColor, 0, 0, 1, 0) // Bottom line
         }
+
+        buildUnifiedUI()
         revalidate()
         repaint()
     }
 
-    private fun buildHorizontalUI() {
-        // 1. CLEAR SECTION - Now specifically sized to fill the height
-        val clearPanel = JPanel(BorderLayout()).apply {
-            isOpaque = false
-            border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-            // We give the Clear button a larger preferred size for the horizontal view
-            val bigClear = createIconButton("⊘", "Clear All", width = 36, height = 56) { resetAll() }.apply {
-                font = font.deriveFont(18f) // Make the icon itself look bigger
-            }
-            add(bigClear, BorderLayout.CENTER)
-        }
-        add(clearPanel)
-        add(createSeparator())
+    private fun buildUnifiedUI() {
+        // 1. Reset
+        add(createToolbarButton(AllIcons.Actions.ClearCash, "Clear All Styles") { resetAll() })
 
-        // 2. COLORS
-        val colorPanel = createGridColumn(2)
-        TagDefs.color.forEach { colorPanel.add(createColorButton(it)) }
-        add(colorPanel)
-        add(createSeparator())
+        // 3. Colors
+        TagDefs.color.forEach { add(createColorButton(it)) }
 
-        // 3. FORMAT
-        val formatPanel = createGridColumn(2)
+
+        // 2. Format
         TagDefs.format.forEach { tag ->
-            formatPanel.add(createIconButton(tag.label, "Toggle ${tag.label}") {
+            val label = tag.label
+            add(createToolbarButton(label, "Toggle $label") {
                 toggleStyle(tag.bold, tag.italic, tag.tag == "u")
+            }.apply {
+                // Stylize the button text to represent the action
+                if (tag.bold) font = font.deriveFont(Font.BOLD)
+                if (tag.italic) font = font.deriveFont(Font.ITALIC)
+                if (tag.tag == "u") {
+                    // Underline is tricky in basic JLabel, we'll just keep the 'U' label
+                }
             })
         }
-        add(formatPanel)
-        add(createSeparator())
 
-        // 4. ANIMATIONS
-        val animPanel = createGridColumn(2)
+
+        // 4. Animations
         TagDefs.anim.forEach { tag ->
-            animPanel.add(createIconButton("≈", tag.label) { applyTag(tag.tag) })
-        }
-        add(animPanel)
-
-        add(Box.createHorizontalGlue())
-    }
-
-    private fun createGridColumn(rows: Int) = JPanel(GridLayout(rows, 0, 2, 2)).apply {
-        isOpaque = false
-        border = BorderFactory.createEmptyBorder(4, 4, 4, 4)
-    }
-
-    private fun createSeparator() = JSeparator(JSeparator.VERTICAL).apply {
-        foreground = UI.border
-        maximumSize = Dimension(1, 50)
-        border = BorderFactory.createEmptyBorder(8, 2, 8, 2)
-    }
-
-    private fun buildSidebarUI() {
-        add(createIconButton("⊘", "Reset All") { resetAll() })
-        (TagDefs.format + TagDefs.color + TagDefs.anim).forEach { tag ->
-            if (tag.color != null && !tag.animated) add(createColorButton(tag))
-            else add(createIconButton(if(tag.animated) "≈" else tag.label, tag.label) {
-                if(tag.isFormat) toggleStyle(tag.bold, tag.italic, tag.tag == "u")
-                else applyTag(tag.tag)
-            })
+            add(createToolbarButton("≈", tag.label) { applyTag(tag.tag) })
         }
     }
-
-    // --- LOGIC ---
 
     private fun resetAll() {
         val attr = SimpleAttributeSet().apply {
@@ -119,53 +95,43 @@ class TagToolbar : JPanel() {
     }
 
     private fun applyTag(tagName: String) {
-        val text = activeEditor?.selectedText ?: ""
-        activeEditor?.replaceSelection("[$tagName]$text[/$tagName]")
+        val editor = activeEditor ?: return
+        val start = editor.selectionStart
+        val text = editor.selectedText ?: ""
+        editor.replaceSelection("[$tagName]$text[/$tagName]")
+        editor.select(start + tagName.length + 2, start + tagName.length + 2 + text.length)
     }
 
-    /**
-     * Optimized Icon Button with better hit detection
-     */
-    private fun createIconButton(label: String, tip: String, width: Int = 28, height: Int = 28, action: () -> Unit) =
-        JLabel(label, SwingConstants.CENTER).apply {
-            preferredSize = Dimension(width, height)
-            font = font.deriveFont(Font.BOLD, 12f)
-            foreground = UI.text
+    private fun createToolbarButton(iconOrLabel: Any, tip: String, action: () -> Unit) =
+        ActionButton(iconOrLabel, tip, 28, 28, action)
+
+    private fun createColorButton(tag: TagDefs.TagDef) =
+        ActionButton(CircleIcon(tag.color ?: Color.WHITE, 12), tag.label, 28, 28) {
+            val attr = SimpleAttributeSet()
+            StyleConstants.setForeground(attr, tag.color ?: Color.WHITE)
+            activeEditor?.setCharacterAttributes(attr, false)
+        }
+
+    private inner class ActionButton(iconObj: Any, tip: String, w: Int, h: Int, val action: () -> Unit) : JLabel() {
+        init {
+            if (iconObj is Icon) icon = iconObj else text = iconObj.toString()
+            horizontalAlignment = CENTER
+            preferredSize = JBUI.size(w, h)
             toolTipText = tip
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-
-            // Fix: Background must be set but usually same as parent until hover
+            font = JBUI.Fonts.label(12f).asBold()
+            foreground = UIUtil.getLabelForeground()
             isOpaque = false
-            background = UI.border
 
             addMouseListener(object : MouseAdapter() {
                 override fun mousePressed(e: MouseEvent) = action()
                 override fun mouseEntered(e: MouseEvent) {
                     isOpaque = true
+                    background = JBColor.namedColor("ActionButton.hoverBackground", Color(0, 0, 0, 20))
                     repaint()
                 }
-                override fun mouseExited(e: MouseEvent) {
-                    isOpaque = false
-                    repaint()
-                }
+                override fun mouseExited(e: MouseEvent) { isOpaque = false; repaint() }
             })
         }
-
-    private fun createColorButton(tag: TagDefs.TagDef) = JPanel(GridBagLayout()).apply {
-        preferredSize = Dimension(28, 28)
-        isOpaque = false
-        background = UI.border
-        toolTipText = tag.label
-        cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
-        add(JLabel(CircleIcon(tag.color ?: Color.WHITE, 14)))
-        addMouseListener(object : MouseAdapter() {
-            override fun mousePressed(e: MouseEvent) {
-                val attr = SimpleAttributeSet()
-                StyleConstants.setForeground(attr, tag.color ?: Color.WHITE)
-                activeEditor?.setCharacterAttributes(attr, false)
-            }
-            override fun mouseEntered(e: MouseEvent) { isOpaque = true; repaint() }
-            override fun mouseExited(e: MouseEvent) { isOpaque = false; repaint() }
-        })
     }
 }

@@ -6,6 +6,7 @@ import com.lamali.cardloc.data.CardLocConfig
 import com.lamali.cardloc.data.CardLocPreset
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.lamali.cardloc.CardLocConstants
 import java.io.File
 import java.util.regex.Pattern
 
@@ -35,13 +36,12 @@ class CardLocRegistry(private val project: Project) {
             val id = config?.projectId ?: return null
             return CAMEL_TO_SNAKE.matcher(id).replaceAll("_$1").uppercase() + "-"
         }
-
     /**
-     * Entry point. Now uses the project instance it was created with.
+     * Entry point.
      */
     fun initialize() {
         val path = project.basePath ?: return
-        val projectFile = File(path, "cardloc-presets.json")
+        val projectFile = File(path, CardLocConstants.CONFIG_FILENAME)
 
         if (projectFile.exists()) {
             loadFromJson(projectFile.readText())

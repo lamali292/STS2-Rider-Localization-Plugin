@@ -56,7 +56,6 @@ object CardLocService {
     }
 
     fun save(project: Project, keyPrefix: String, values: Map<String, String>, preset: CardLocPreset) {
-        // Group values by the target file defined in the preset
         val byFile = mutableMapOf<String, MutableMap<String, String>>()
 
         values.forEach { (fullKey, value) ->

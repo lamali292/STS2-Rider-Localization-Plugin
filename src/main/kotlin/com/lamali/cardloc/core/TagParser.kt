@@ -1,7 +1,6 @@
-﻿package com.lamali.cardloc.editor.logic
+﻿package com.lamali.cardloc.core
 
 import com.lamali.cardloc.editor.ui.TagDefs
-import com.lamali.cardloc.editor.ui.UI
 import java.awt.Color
 import javax.swing.text.SimpleAttributeSet
 import javax.swing.text.StyleConstants
@@ -37,7 +36,6 @@ object TagParser {
                 colorToTag[color]?.let { activeTags.add(it.tag) }
 
                 // Note: Animation tags are currently handled as text inserts in Toolbar,
-                // but if they were attributes, they'd go here.
 
                 // Construct the block
                 val openTags = activeTags.joinToString("") { "[$it]" }
