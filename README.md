@@ -44,26 +44,6 @@ Add a `cardloc-presets.json` file to your project root.
           "name": "selectionScreenPrompt",
           "file": "cards.json",
           "optional": true
-        },
-        {
-          "name": "encode",
-          "file": "encode.json",
-          "optional": true
-        },
-        {
-          "name": "compile",
-          "file": "encode.json",
-          "optional": true
-        },
-        {
-          "name": "functionPrefix",
-          "file": "encode.json",
-          "optional": true
-        },
-        {
-          "name": "functionName",
-          "file": "encode.json",
-          "optional": true
         }
       ]
     },
