@@ -1,6 +1,12 @@
-# Configuration
+## Configuration
 
-Add a cardloc-presets.json file to your project root. In the markers array, add your custom classes for each preset type.
+Add a `cardloc-presets.json` file to your project root.
+
+| Field | Description |
+|-------|-------------|
+| `projectId` | Your mod ID — the prefix that BaseLib creates (e.g. `Downfall`) |
+| `localizationBase` | Path to your localization files (e.g. `Downfall/localization/eng`) |
+| `markers` | Your custom classes for each preset type |
 
 <details>
 <summary>cardloc-presets.json</summary>
