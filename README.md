@@ -16,6 +16,8 @@ Add a `cardloc-presets.json` file to your project root.
 | `localizationBase` | Path to your localization files (e.g. `Downfall/localization/eng`) |
 | `markers` | Your custom classes for each preset type |
 
+## Example -- cardloc-presets.json
+
 <details>
 <summary>cardloc-presets.json</summary>
   
