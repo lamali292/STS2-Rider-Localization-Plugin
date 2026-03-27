@@ -1,3 +1,11 @@
+## Installation
+
+1. Download the latest `.zip` from the [Releases](../../releases) page
+2. Open Rider and go to **File → Settings → Plugins**
+3. Click the **⚙️** icon and select **Install Plugin from Disk...**
+4. Select the downloaded `.zip` file and restart the IDE
+
+
 ## Configuration
 
 Add a `cardloc-presets.json` file to your project root.
