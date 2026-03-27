@@ -1,0 +1,161 @@
+# Configuration
+
+Add a cardloc-presets.json file to your project root. In the markers array, add your custom classes for each preset type.
+
+<details>
+<summary>cardloc-presets.json</summary>
+  
+```json
+{
+  "localizationBase": "Downfall/localization/eng",
+  "projectId": "Downfall",
+  "presets": [
+    {
+      "id": "card",
+      "markers": [
+        "CustomCardModel"
+      ],
+      "fields": [
+        {
+          "name": "title",
+          "file": "cards.json",
+          "optional": false
+        },
+        {
+          "name": "description",
+          "file": "cards.json",
+          "optional": false
+        },
+        {
+          "name": "selectionScreenPrompt",
+          "file": "cards.json",
+          "optional": true
+        },
+        {
+          "name": "encode",
+          "file": "encode.json",
+          "optional": true
+        },
+        {
+          "name": "compile",
+          "file": "encode.json",
+          "optional": true
+        },
+        {
+          "name": "functionPrefix",
+          "file": "encode.json",
+          "optional": true
+        },
+        {
+          "name": "functionName",
+          "file": "encode.json",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "markers": [
+        "CustomPowerModel"
+      ],
+      "fields": [
+        {
+          "name": "title",
+          "file": "powers.json",
+          "optional": false
+        },
+        {
+          "name": "description",
+          "file": "powers.json",
+          "optional": false
+        },
+        {
+          "name": "smartDescription",
+          "file": "powers.json",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "character",
+      "markers": [
+        "CustomCharacterModel"
+      ],
+      "fields": [
+        {
+          "name": "title",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "titleObject",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "pronounSubject",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "pronounPossessive",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "pronounObject",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "possessiveAdjective",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "goldMonologue",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "eventDeathPrevention",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "description",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "cardsModifierTitle",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "cardsModifierDescription",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "banter.dead.endTurnPing",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "banter.alive.endTurnPing",
+          "file": "characters.json",
+          "optional": false
+        },
+        {
+          "name": "aromaPrinciple",
+          "file": "characters.json",
+          "optional": false
+        }
+      ]
+    }
+  ]
+}
+```
+  
+</details>
