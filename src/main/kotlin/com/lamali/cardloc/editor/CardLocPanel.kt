@@ -41,7 +41,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private val splitPane = JBSplitter(true, 0.6f).apply {
-        dividerWidth = 1 // Sleek IntelliJ divider
+        dividerWidth = 5
     }
 
     init {

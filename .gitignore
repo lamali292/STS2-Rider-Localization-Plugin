@@ -7,3 +7,4 @@ build/
 # IDE — local IDE state (not your config)
 .idea/
 .intellijPlatform/
+.kotlin
