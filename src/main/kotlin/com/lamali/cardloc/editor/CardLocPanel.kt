@@ -130,6 +130,12 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         fieldsPanel.add(row, gbc)
     }
 
+    fun saveCurrentContent() {
+        if (currentKey.isNotEmpty() && currentPreset != null) {
+            autoSave()
+        }
+    }
+
     private fun scheduleAutoSave() {
         lastChangeTime = System.currentTimeMillis()
         if (!autoSaveTimer.isRunning) autoSaveTimer.start() else autoSaveTimer.restart()

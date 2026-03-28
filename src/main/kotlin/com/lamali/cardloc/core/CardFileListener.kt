@@ -28,6 +28,7 @@ class CardFileListener : FileEditorManagerListener {
                 val tw = ToolWindowManager.getInstance(project).getToolWindow("StS2 Localization Editor") ?: return@invokeLater
                 if (tw.isVisible) {
                     val panel = tw.contentManager.selectedContent?.component as? CardLocPanel ?: return@invokeLater
+                    panel.saveCurrentContent()
                     panel.load(key, existing, preset)
                 }
             }
