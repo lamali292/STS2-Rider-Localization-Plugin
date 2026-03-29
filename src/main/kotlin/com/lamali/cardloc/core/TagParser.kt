@@ -12,93 +12,101 @@ object TagParser {
 
     fun toGameString(doc: StyledDocument): String {
         val sb = StringBuilder()
-        var i = 0
         val len = doc.length
+        val activeStyles = mutableListOf<String>()
 
-        try {
-            while (i < len) {
-                val element = doc.getCharacterElement(i)
-                val attr = element.attributes
-                val start = element.startOffset
-                val end = element.endOffset
-                val partText = doc.getText(start, (end - start).coerceAtMost(len - start))
+        var i = 0
+        while (i < len) {
+            val element = doc.getCharacterElement(i)
+            val attr = element.attributes
+            val start = element.startOffset
+            val end = element.endOffset
+            val text = doc.getText(start, (end - start).coerceAtMost(len - start))
 
-                // Determine active tags for this entire block
-                val activeTags = mutableListOf<String>()
+            // 1. Determine which "Formatting" tags should be active
+            val targetStyles = mutableListOf<String>()
+            if (StyleConstants.isBold(attr)) targetStyles.add("b")
+            if (StyleConstants.isItalic(attr)) targetStyles.add("i")
+            if (StyleConstants.isUnderline(attr)) targetStyles.add("u")
 
-                // 1. Format Tags
-                if (StyleConstants.isBold(attr)) activeTags.add("b")
-                if (StyleConstants.isItalic(attr)) activeTags.add("i")
-                if (StyleConstants.isUnderline(attr)) activeTags.add("u")
+            val fg = StyleConstants.getForeground(attr)
+            colorToTag[fg]?.let { targetStyles.add(it.tag) }
 
-                // 2. Color Tags
-                val color = StyleConstants.getForeground(attr)
-                colorToTag[color]?.let { activeTags.add(it.tag) }
-
-                // Note: Animation tags are currently handled as text inserts in Toolbar,
-
-                // Construct the block
-                val openTags = activeTags.joinToString("") { "[$it]" }
-                val closeTags = activeTags.asReversed().joinToString("") { "[/$it]" }
-
-                // Newlines should NOT be wrapped in tags in many game engines
-                if (partText == "\n") {
-                    sb.append("\n")
-                } else {
-                    sb.append(openTags).append(partText).append(closeTags)
-                }
-
-                i = end
+            // 2. Close styles that changed (LIFO order)
+            val toClose = activeStyles.filter { it !in targetStyles }.reversed()
+            for (tag in toClose) {
+                sb.append("[/$tag]")
+                activeStyles.remove(tag)
             }
-        } catch (e: Exception) {
-            return ""
+
+            // 3. Open new styles
+            val toOpen = targetStyles.filter { it !in activeStyles }
+            for (tag in toOpen) {
+                sb.append("[$tag]")
+                activeStyles.add(tag)
+            }
+
+            // 4. Append text (this includes [jitter] if it was inserted as text)
+            sb.append(text)
+            i = end
         }
 
-        // Final cleanup: Merge adjacent identical tags, e.g., [/b][b] -> ""
-        var result = sb.toString()
-        val allPossibleTags = TagDefs.map.keys + listOf("b", "i", "u")
-        allPossibleTags.forEach { tag ->
-            result = result.replace("[/$tag][$tag]", "")
-        }
+        // Close remaining formatting
+        activeStyles.reversed().forEach { sb.append("[/$it]") }
 
-        return result
+        return sb.toString()
     }
 
-    fun parseAndSet(doc: StyledDocument, raw: String) {
+    fun parseAndSet(doc: StyledDocument, raw: String?) {
         doc.remove(0, doc.length)
-        // Convert escaped newlines for the editor
-        val processed = raw.replace("\\n", "\n")
+        if (raw.isNullOrEmpty()) return
 
-        // Regex to find [tags], [/tags], or plain text
-        val tokens = Regex("""\[/?[^]]+]|[^\[]+""").findAll(processed)
+        // Regex matches [tags] or plain text
+        val tokens = Regex("""\[/?[^]]+]|[^\[]+""").findAll(raw)
 
-        // Stack to track nested styles
-        val styleStack = mutableListOf(SimpleAttributeSet().apply {
+        val currentAttr = SimpleAttributeSet().apply {
             StyleConstants.setForeground(this, Color.WHITE)
-        })
+        }
+        val colorStack = mutableListOf(Color.WHITE)
 
         tokens.forEach { match ->
             val token = match.value
-            when {
-                token.startsWith("[/") -> {
-                    if (styleStack.size > 1) styleStack.removeAt(styleStack.size - 1)
-                }
-                token.startsWith("[") -> {
-                    val tagName = token.substring(1, token.length - 1)
-                    val newStyle = SimpleAttributeSet(styleStack.last())
 
-                    TagDefs.map[tagName]?.let { def ->
-                        if (def.color != null) StyleConstants.setForeground(newStyle, def.color)
-                        if (def.bold || tagName == "b") StyleConstants.setBold(newStyle, true)
-                        if (def.italic || tagName == "i") StyleConstants.setItalic(newStyle, true)
-                        if (tagName == "u") StyleConstants.setUnderline(newStyle, true)
+            // Logic for Formatting Tags ONLY
+            if (token.startsWith("[") && token.endsWith("]") && token.length >= 3) {
+                val isClosing = token.startsWith("[/")
+                val tagName = if (isClosing) token.substring(2, token.length - 1) else token.substring(1, token.length - 1)
+                val def = TagDefs.map[tagName]
+
+                // We ONLY process it as a style if it is a Color or a standard Format (B, I, U)
+                val isFormatting = def != null && (def.isFormat || def.color != null) && !def.animated
+
+                if (isFormatting) {
+                    if (isClosing) {
+                        when {
+                            tagName == "b" || def.bold -> StyleConstants.setBold(currentAttr, false)
+                            tagName == "i" || def.italic -> StyleConstants.setItalic(currentAttr, false)
+                            tagName == "u" -> StyleConstants.setUnderline(currentAttr, false)
+                            def.color != null -> {
+                                if (colorStack.size > 1) colorStack.removeAt(colorStack.size - 1)
+                                StyleConstants.setForeground(currentAttr, colorStack.last())
+                            }
+                        }
+                    } else {
+                        when {
+                            tagName == "b" || def.bold -> StyleConstants.setBold(currentAttr, true)
+                            tagName == "i" || def.italic -> StyleConstants.setItalic(currentAttr, true)
+                            tagName == "u" -> StyleConstants.setUnderline(currentAttr, true)
+                            def.color != null -> {
+                                colorStack.add(def.color)
+                                StyleConstants.setForeground(currentAttr, def.color)
+                            }
+                        }
                     }
-                    styleStack.add(newStyle)
-                }
-                else -> {
-                    doc.insertString(doc.length, token, styleStack.last())
+                    return@forEach // Style applied, don't insert the tag as text
                 }
             }
+            doc.insertString(doc.length, token, currentAttr)
         }
     }
 }
