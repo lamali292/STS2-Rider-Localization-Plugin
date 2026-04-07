@@ -1,3 +1,9 @@
+## Warning 
+In rare cases, JSON localization files can be reset during autosave if the plugin hasn't fully loaded yet. 
+Keep backups of your localization files. 
+Not a priority to fix - this is a personal productivity tool and spending time maintaining it defeats its purpose.
+
+
 ## Installation
 
 1. Download the latest `.zip` from the [Releases](../../releases) page
