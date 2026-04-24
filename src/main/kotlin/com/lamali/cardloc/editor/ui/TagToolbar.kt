@@ -4,15 +4,16 @@ import com.intellij.icons.AllIcons
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import com.lamali.cardloc.core.CardLocRegistry
 import java.awt.*
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.*
-import javax.swing.text.*
 
-class TagToolbar : JPanel() {
+class TagToolbar(private val registry: CardLocRegistry) : JPanel() {
 
     private var activeEditor: JTextPane? = null
+    private var isVertical = false
 
     init {
         background = JBColor.namedColor("ActionButton.hoverBackground", UIUtil.getPanelBackground())
@@ -24,9 +25,9 @@ class TagToolbar : JPanel() {
     }
 
     fun updateOrientation(vertical: Boolean) {
+        isVertical = vertical
         removeAll()
         val borderColor = JBColor.namedColor("Borders.color", JBColor(0xC9C9C9, 0x646464))
-
         if (vertical) {
             layout = FlowLayout(FlowLayout.CENTER, 4, 4)
             preferredSize = JBUI.size(36, 0)
@@ -36,73 +37,48 @@ class TagToolbar : JPanel() {
             preferredSize = JBUI.size(0, 36)
             border = JBUI.Borders.customLine(borderColor, 0, 0, 1, 0)
         }
-
-        buildUnifiedUI()
+        ToolbarActionProvider.defaultActions(registry, isVertical).forEach { add(buildButton(it)) }
         revalidate()
         repaint()
     }
 
-    private fun buildUnifiedUI() {
-        add(createToolbarButton(AllIcons.Actions.ClearCash, "Clear Formatting") { resetFormatting() })
-        TagDefs.color.forEach { add(createColorButton(it)) }
-        TagDefs.format.forEach { tag ->
-            add(createToolbarButton(tag.label, "Toggle ${tag.label}") {
-                toggleStyle(tag.bold, tag.italic, tag.tag == "u")
-            }.apply {
-                if (tag.bold) font = font.deriveFont(Font.BOLD)
-                if (tag.italic) font = font.deriveFont(Font.ITALIC)
-            })
+    private fun rebuild() = updateOrientation(isVertical)
+    private fun buildButton(action: ToolbarAction): JComponent {
+        val icon: Any = when (action) {
+            is ToolbarAction.ClearFormatting  -> AllIcons.Actions.ClearCash
+            is ToolbarAction.NamedColor       -> CircleIcon(action.color, 12)
+            is ToolbarAction.CustomNamedColor -> CircleIcon(action.color, 12)
+            is ToolbarAction.MoreColors       -> ColorWheelIcon(14)
+            is ToolbarAction.ToggleFormat     -> action.label
+            is ToolbarAction.WrapTag          -> action.label
         }
-
-        TagDefs.anim.forEach { tag ->
-            add(createToolbarButton("≈", "Apply ${tag.label}") { applyAnimationTag(tag.tag) })
+        return ActionButton(icon, action.tooltip, 28, 28) {
+            activeEditor?.let { editor ->
+                when (action) {
+                    is ToolbarAction.MoreColors -> {
+                        val popup = ColorOverflowPopup(editor, action.extra, action.registry, action.isVertical) {
+                            rebuild() // direct reference — no property change needed
+                        }
+                        if (action.isVertical) popup.show(this, width, 0)
+                        else                   popup.show(this, 0, height)
+                    }
+                    else -> action.execute(editor, this)
+                }
+            }
+        }.apply {
+            if (action is ToolbarAction.ToggleFormat) {
+                if (action.bold)   font = font.deriveFont(Font.BOLD)
+                if (action.italic) font = font.deriveFont(Font.ITALIC)
+            }
+            action.contextMenu(registry) { rebuild() }?.let { menu ->
+                addMouseListener(object : MouseAdapter() {
+                    override fun mousePressed(e: MouseEvent) {
+                        if (SwingUtilities.isRightMouseButton(e)) menu.show(this@apply, e.x, e.y)
+                    }
+                })
+            }
         }
     }
-
-    private fun resetFormatting() {
-        val attr = SimpleAttributeSet().apply {
-            StyleConstants.setForeground(this, Color.WHITE)
-            StyleConstants.setBold(this, false)
-            StyleConstants.setItalic(this, false)
-            StyleConstants.setUnderline(this, false)
-        }
-        activeEditor?.setCharacterAttributes(attr, false)
-    }
-
-    private fun toggleStyle(b: Boolean = false, i: Boolean = false, u: Boolean = false) {
-        val editor = activeEditor ?: return
-        val current = editor.styledDocument.getCharacterElement(editor.selectionStart).attributes
-        val next = SimpleAttributeSet()
-        if (b) StyleConstants.setBold(next, !StyleConstants.isBold(current))
-        if (i) StyleConstants.setItalic(next, !StyleConstants.isItalic(current))
-        if (u) StyleConstants.setUnderline(next, !StyleConstants.isUnderline(current))
-        editor.setCharacterAttributes(next, false)
-    }
-
-    private fun applyAnimationTag(tagName: String) {
-        val editor = activeEditor ?: return
-        val start = editor.selectionStart
-
-        val selectedText = editor.selectedText ?: ""
-        val replacement = "[$tagName]$selectedText[/$tagName]"
-        editor.replaceSelection(replacement)
-        if (selectedText.isEmpty()) {
-            editor.caretPosition = start + tagName.length + 2
-        } else {
-            editor.select(start + tagName.length + 2, start + tagName.length + 2 + selectedText.length)
-        }
-        editor.requestFocusInWindow()
-    }
-
-    private fun createToolbarButton(iconOrLabel: Any, tip: String, action: () -> Unit) =
-        ActionButton(iconOrLabel, tip, 28, 28, action)
-
-    private fun createColorButton(tag: TagDefs.TagDef) =
-        ActionButton(CircleIcon(tag.color ?: Color.WHITE, 12), tag.label, 28, 28) {
-            val attr = SimpleAttributeSet()
-            StyleConstants.setForeground(attr, tag.color ?: Color.WHITE)
-            activeEditor?.setCharacterAttributes(attr, false)
-        }
 
     private inner class ActionButton(iconObj: Any, tip: String, w: Int, h: Int, val action: () -> Unit) : JLabel() {
         init {
@@ -113,9 +89,10 @@ class TagToolbar : JPanel() {
             cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
             font = JBUI.Fonts.label(12f).asBold()
             foreground = UIUtil.getLabelForeground()
-
             addMouseListener(object : MouseAdapter() {
-                override fun mousePressed(e: MouseEvent) = action()
+                override fun mousePressed(e: MouseEvent) {
+                    if (SwingUtilities.isLeftMouseButton(e)) action()
+                }
                 override fun mouseEntered(e: MouseEvent) {
                     isOpaque = true
                     background = JBColor.namedColor("ActionButton.hoverBackground", Color(0, 0, 0, 20))

@@ -27,7 +27,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     // UI Components
     private val header = CardLocHeader(::reload, ::promptAddField, ::save, ::openPresetEditor)
     private val preview = CardLocPreview()
-    private val tagToolbar = TagToolbar()
+    private val tagToolbar = TagToolbar(registry)
     private val fieldsPanel = JPanel(GridBagLayout()).apply { background = UI.bg }
     private val rows = mutableListOf<FieldRow>()
 

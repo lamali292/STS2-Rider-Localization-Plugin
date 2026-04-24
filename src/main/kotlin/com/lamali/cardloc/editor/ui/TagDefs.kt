@@ -16,8 +16,8 @@ object TagDefs {
 
     val color = listOf(
         TagDef("gold",   "Gold",   Color(0xEFC851)),
-        TagDef("aqua",   "Aqua",   Color(0x2AEBBE)),
         TagDef("blue",   "Blue",   Color(0x87CEEB)),
+        TagDef("aqua",   "Aqua",   Color(0x2AEBBE)),
         TagDef("green",  "Green",  Color(0x7FFF00)),
         TagDef("orange", "Orange", Color(0xFFA518)),
         TagDef("pink",   "Pink",   Color(0xFF78A0)),
