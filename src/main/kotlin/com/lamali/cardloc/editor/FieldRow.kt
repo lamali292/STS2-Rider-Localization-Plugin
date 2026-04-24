@@ -7,10 +7,13 @@ import com.intellij.util.ui.UIUtil
 import com.lamali.cardloc.core.TagParser
 import com.lamali.cardloc.editor.ui.*
 import java.awt.*
+import java.awt.datatransfer.DataFlavor
 import java.awt.event.*
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
+import javax.swing.text.SimpleAttributeSet
+import javax.swing.text.StyleConstants
 import javax.swing.text.StyledEditorKit
 
 class FieldRow(
@@ -39,6 +42,37 @@ class FieldRow(
         editor.putClientProperty("ActionMap.LocalEventHandling", true)
 
         setupEditorStyles()
+        editor.transferHandler = object : TransferHandler() {
+            override fun canImport(support: TransferSupport) =
+                support.isDataFlavorSupported(DataFlavor.stringFlavor)
+
+            override fun importData(support: TransferSupport): Boolean {
+                if (!canImport(support)) return false
+                if (support.isDrop && support.component == editor) {
+                    return super.importData(support)
+                }
+                val text = runCatching {
+                    support.transferable.getTransferData(DataFlavor.stringFlavor) as? String
+                }.getOrNull() ?: return false
+
+                val doc = editor.styledDocument
+                val caretAttr = SimpleAttributeSet(
+                    doc.getCharacterElement(editor.caretPosition).attributes
+                )
+                val fg = StyleConstants.getForeground(caretAttr)
+                if (fg != Color.WHITE && fg != UIUtil.getTextFieldForeground()
+                    && TagDefs.color.none { it.color == fg }) {
+                    StyleConstants.setForeground(caretAttr, UIUtil.getTextFieldForeground())
+                }
+                editor.replaceSelection("")
+                doc.insertString(editor.caretPosition, text, caretAttr)
+                return true
+            }
+
+            override fun createTransferable(c: JComponent) = super.createTransferable(c)
+            override fun getSourceActions(c: JComponent) = COPY_OR_MOVE
+        }
+
         TagParser.parseAndSet(editor.styledDocument, initialValue)
 
         val scroll = JScrollPane(editor).apply {
@@ -69,12 +103,14 @@ class FieldRow(
     private fun setupEditorStyles() {
         editor.apply {
             background = UIUtil.getTextFieldBackground()
-            foreground = UIUtil.getTextFieldForeground()
             caretColor = UIUtil.getTextFieldForeground()
-
             font = UIUtil.getLabelFont()
             margin = JBUI.insets(6)
         }
+        val defaultAttr = SimpleAttributeSet().apply {
+            StyleConstants.setForeground(this, UIUtil.getTextFieldForeground())
+        }
+        editor.styledDocument.setParagraphAttributes(0, editor.styledDocument.length, defaultAttr, false)
     }
 
     fun connectToolbar(toolbar: TagToolbar) {

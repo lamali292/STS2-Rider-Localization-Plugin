@@ -1,6 +1,6 @@
 ﻿package com.lamali.cardloc.core
 
-import java.awt.Color
+import com.intellij.util.ui.UIUtil
 import javax.swing.text.SimpleAttributeSet
 import javax.swing.text.StyleConstants
 import javax.swing.text.StyledDocument
@@ -12,8 +12,10 @@ class TagDeserializer(private val handlers: List<TagHandler>) {
         if (raw.isNullOrEmpty()) return
 
         val tokens = Regex("""\[/?[^]]+]|[^\[]+""").findAll(raw)
-        val attr = SimpleAttributeSet().apply { StyleConstants.setForeground(this, Color.WHITE) }
-        val state = ParseState()
+        val attr = SimpleAttributeSet().apply {
+            StyleConstants.setForeground(this, UIUtil.getTextFieldForeground())
+        }
+        val state = ParseState(colorStack = mutableListOf(UIUtil.getTextFieldForeground()))
 
         tokens.forEach { match ->
             val token = match.value

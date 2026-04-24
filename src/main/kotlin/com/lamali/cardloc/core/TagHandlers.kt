@@ -1,5 +1,6 @@
 ﻿package com.lamali.cardloc.core
 
+import com.intellij.util.ui.UIUtil
 import com.lamali.cardloc.editor.ui.TagDefs
 import java.awt.Color
 import javax.swing.text.AttributeSet
@@ -65,7 +66,10 @@ object HexColorHandler : TagHandler {
 
     override fun activeTag(attr: AttributeSet): String? {
         val fg = StyleConstants.getForeground(attr)
-        return if (fg != Color.WHITE) "color=#%02X%02X%02X".format(fg.red, fg.green, fg.blue) else null
+        if (fg == Color.WHITE) return null
+        if (fg == UIUtil.getTextFieldForeground()) return null
+        if (TagDefs.color.any { it.color == fg }) return null
+        return "color=#%02X%02X%02X".format(fg.red, fg.green, fg.blue)
     }
 
     override fun closeTagFor(openTag: String) = "color"
