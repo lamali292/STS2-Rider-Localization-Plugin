@@ -4,46 +4,42 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
-import com.lamali.cardloc.core.CardLocRegistry
 import com.lamali.cardloc.data.CardLocConfig
 import com.lamali.cardloc.data.CardLocPreset
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.intellij.ui.JBSplitter
-import com.lamali.cardloc.CardLocConstants
 import java.awt.*
 import java.io.File
 import javax.swing.*
 
 class CardLocConfigDialog(
-    private val project: Project,
-    private val registry: CardLocRegistry
+    project: Project,
+    private val initialConfigFile: File
 ) : DialogWrapper(project) {
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
     private val presetListModel = DefaultListModel<CardLocPreset>()
 
     private val settingsPanel = GlobalConfigPanel(project)
-    private lateinit var selectorPanel: PresetSidebarPanel
+    private var selectorPanel: PresetSidebarPanel
     private val editorPanel = PresetDetailPanel(project)
 
     private var lastSelectedIndex: Int = -1
-    private var isSaving = false // Recursion guard
+    private var isSaving = false
 
     init {
-        title = "CardLoc Configuration"
+        title = "CardLoc Configuration - ${initialConfigFile.parentFile.name}"
 
         selectorPanel = PresetSidebarPanel(
             model = presetListModel,
-            onSelectionChanged = { preset, newIndex ->
-                handleSelectionChange(preset, newIndex)
-            },
+            onSelectionChanged = { preset, newIndex -> handleSelectionChange(preset, newIndex) },
             onCreate = { createNewPreset() },
             onDuplicate = { preset -> duplicatePreset(preset) },
             onDelete = { index -> deletePreset(index) }
         )
-        loadCurrentConfig()
 
+        loadCurrentConfig() // This now uses initialConfigFile
         init()
 
         if (!presetListModel.isEmpty) {
@@ -87,7 +83,7 @@ class CardLocConfigDialog(
         }
 
         val topSection = JPanel(BorderLayout()).apply {
-            val titleLabel = JBLabel("Project Settings").apply {
+            val titleLabel = JBLabel("Project settings").apply {
                 font = font.deriveFont(Font.BOLD, 14f)
                 border = JBUI.Borders.emptyBottom(5)
             }
@@ -97,7 +93,7 @@ class CardLocConfigDialog(
         }
 
         val presetSection = JPanel(BorderLayout()).apply {
-            val titleLabel = JBLabel("Preset Management").apply {
+            val titleLabel = JBLabel("Preset management").apply {
                 font = font.deriveFont(Font.BOLD, 14f)
                 border = JBUI.Borders.emptyBottom(5)
             }
@@ -127,11 +123,7 @@ class CardLocConfigDialog(
                 localizationBase = settingsPanel.getLocBase(),
                 presets = (0 until presetListModel.size()).map { presetListModel.getElementAt(it) }
             )
-            val basePath = project.basePath ?: return
-            val configFile = File(basePath, CardLocConstants.CONFIG_FILENAME)
-            configFile.writeText(gson.toJson(config))
-
-            registry.reload()
+            initialConfigFile.writeText(gson.toJson(config))
             super.doOKAction()
         } catch (e: Exception) {
             showError("Save failed: ${e.message}")
@@ -139,11 +131,9 @@ class CardLocConfigDialog(
     }
 
     private fun loadCurrentConfig() {
-        val basePath = project.basePath ?: return
-        val configFile = File(basePath, CardLocConstants.CONFIG_FILENAME)
-        if (configFile.exists()) {
+        if (initialConfigFile.exists()) {
             try {
-                val json = configFile.readText().trimStart('\uFEFF')
+                val json = initialConfigFile.readText().trimStart('\uFEFF')
                 val config = gson.fromJson(json, CardLocConfig::class.java)
                 settingsPanel.setState(config.projectId, config.localizationBase)
                 presetListModel.clear()

@@ -3,6 +3,7 @@
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import com.lamali.cardloc.core.CardLocRegistry
+import com.lamali.cardloc.data.CardLocContext
 import com.lamali.cardloc.data.PinnedColor
 import java.awt.*
 import java.awt.event.MouseAdapter
@@ -15,6 +16,7 @@ class ColorOverflowPopup(
     private val editor: JTextPane,
     tags: List<TagDefs.TagDef>,
     private val registry: CardLocRegistry,
+    private val context: CardLocContext,
     isVertical: Boolean = false,
     private val onPinChanged: () -> Unit
 ) : JPopupMenu() {
@@ -31,7 +33,8 @@ class ColorOverflowPopup(
 
         tags.forEach { tag -> add(colorChip(CircleIcon(tag.color ?: Color.WHITE, 14), tag.label,
             onClick = { applyNamed(tag) },
-            onPin   = { registry.pinColor(PinnedColor(tag = tag.tag)); onPinChanged(); isVisible = false }
+            // 2. Fix: Pass context to pinColor
+            onPin   = { registry.pinColor(context, PinnedColor(tag = tag.tag)); onPinChanged(); isVisible = false }
         ))}
 
         add(colorChip(ColorWheelIcon(14), "Custom color…",
@@ -97,7 +100,8 @@ class ColorOverflowPopup(
         val hex = "#%02X%02X%02X".format(picked.red, picked.green, picked.blue)
         val label = JOptionPane.showInputDialog(editor, "Pin this color? Enter a label (or cancel to skip)", hex)
         if (label != null) {
-            registry.pinColor(PinnedColor(hex = hex, label = label))
+            // 3. Fix: Pass context to pinColor
+            registry.pinColor(context, PinnedColor(hex = hex, label = label))
             onPinChanged()
         }
         editor.requestFocusInWindow()

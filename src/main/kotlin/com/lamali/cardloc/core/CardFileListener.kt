@@ -16,20 +16,28 @@ class CardFileListener : FileEditorManagerListener {
         val registry = project.getService(CardLocRegistry::class.java)
 
         ApplicationManager.getApplication().executeOnPooledThread {
-            if (!registry.isInitialized()) return@executeOnPooledThread
+            val context = registry.getContextForFile(file) ?: return@executeOnPooledThread
+
             val source = runCatching {
                 String(file.contentsToByteArray())
             }.getOrNull() ?: return@executeOnPooledThread
-            val result = registry.detectWithClass(source) ?: return@executeOnPooledThread
+
+            val result = context.detectWithClass(source) ?: return@executeOnPooledThread
             val (preset, className) = result
-            val key = CardLocService.toKey(project, className) ?: return@executeOnPooledThread
-            val existing = CardLocService.load(project, key, preset)
+
+            val key = CardLocService.toKey(context, className) ?: return@executeOnPooledThread
+            val existing = CardLocService.load(context, key, preset)
+
             ApplicationManager.getApplication().invokeLater {
-                val tw = ToolWindowManager.getInstance(project).getToolWindow("StS2 Localization Editor") ?: return@invokeLater
+                val tw = ToolWindowManager.getInstance(project)
+                    .getToolWindow("StS2 Localization Editor") ?: return@invokeLater
+
                 if (tw.isVisible) {
-                    val panel = tw.contentManager.selectedContent?.component as? CardLocPanel ?: return@invokeLater
+                    val panel = tw.contentManager.selectedContent?.component
+                            as? CardLocPanel ?: return@invokeLater
+
                     panel.saveCurrentContent()
-                    panel.load(key, existing, preset)
+                    panel.load(context, key, existing, preset)
                 }
             }
         }

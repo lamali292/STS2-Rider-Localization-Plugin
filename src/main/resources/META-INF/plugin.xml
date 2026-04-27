@@ -16,16 +16,11 @@
                 icon="AllIcons.Actions.Edit"
                 factoryClass="com.lamali.cardloc.idea.CardLocToolWindowFactory"/>
 
-        <projectActivity implementation="com.lamali.cardloc.core.CardLocStartupActivity"/>
     </extensions>
 
     <projectListeners>
         <listener
                 class="com.lamali.cardloc.core.CardFileListener"
                 topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
-
-        <listener
-                class="com.lamali.cardloc.core.CardLocConfigWatcher"
-                topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
     </projectListeners>
 </idea-plugin>

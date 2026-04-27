@@ -7,7 +7,6 @@ class TagSerializer(private val handlers: List<TagHandler>) {
     fun serialize(doc: StyledDocument): String {
         val sb = StringBuilder()
         val len = doc.length
-        // Track (openTagString -> handler) so we know how to close each
         val activeStyles = mutableListOf<Pair<String, TagHandler>>()
 
         var i = 0
@@ -21,7 +20,6 @@ class TagSerializer(private val handlers: List<TagHandler>) {
             val targetStyles = handlers.mapNotNull { h -> h.activeTag(attr)?.let { h to it } }
             val targetTags = targetStyles.map { it.second }
 
-            // Close removed styles (LIFO)
             activeStyles.filter { (tag, _) -> tag !in targetTags }
                 .reversed()
                 .forEach { (tag, handler) ->
@@ -29,7 +27,6 @@ class TagSerializer(private val handlers: List<TagHandler>) {
                     activeStyles.remove(tag to handler)
                 }
 
-            // Open new styles
             targetStyles.filter { (_, tag) -> tag !in activeStyles.map { it.first } }
                 .forEach { (handler, tag) ->
                     sb.append("[$tag]")

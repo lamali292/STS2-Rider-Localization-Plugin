@@ -1,6 +1,7 @@
 ﻿package com.lamali.cardloc.editor.ui
 
 import com.lamali.cardloc.core.CardLocRegistry
+import com.lamali.cardloc.data.CardLocContext
 import com.lamali.cardloc.data.PinnedColor
 import java.awt.Color
 import javax.swing.*
@@ -8,13 +9,17 @@ import javax.swing.text.*
 
 sealed class ToolbarAction {
     abstract val tooltip: String
-    abstract fun execute(editor: JTextPane, parent: JComponent)
-    open fun contextMenu(registry: CardLocRegistry, onChanged: () -> Unit): JPopupMenu? = null
+
+    // Updated signature to include context
+    abstract fun execute(editor: JTextPane, parent: JComponent, context: CardLocContext?)
+
+    // Updated signature to include context
+    open fun contextMenu(registry: CardLocRegistry, context: CardLocContext?, onChanged: () -> Unit): JPopupMenu? = null
 
     data class ClearFormatting(
         override val tooltip: String = "Clear Formatting"
     ) : ToolbarAction() {
-        override fun execute(editor: JTextPane, parent: JComponent) {
+        override fun execute(editor: JTextPane, parent: JComponent, context: CardLocContext?) {
             val attr = SimpleAttributeSet().apply {
                 StyleConstants.setForeground(this, Color.WHITE)
                 StyleConstants.setBold(this, false)
@@ -30,13 +35,18 @@ sealed class ToolbarAction {
         val tag: String,
         override val tooltip: String
     ) : ToolbarAction() {
-        override fun execute(editor: JTextPane, parent: JComponent) {
+        override fun execute(editor: JTextPane, parent: JComponent, context: CardLocContext?) {
             val attr = SimpleAttributeSet().apply { StyleConstants.setForeground(this, color) }
             editor.setCharacterAttributes(attr, false)
         }
-        override fun contextMenu(registry: CardLocRegistry, onChanged: () -> Unit) = JPopupMenu().apply {
+
+        override fun contextMenu(registry: CardLocRegistry, context: CardLocContext?, onChanged: () -> Unit) = JPopupMenu().apply {
+            val ctx = context ?: return@apply // Context is required for unpinning
             add(JMenuItem("Unpin").apply {
-                addActionListener { registry.unpinColor(PinnedColor(tag = tag)); onChanged() }
+                addActionListener {
+                    registry.unpinColor(ctx, PinnedColor(tag = tag))
+                    onChanged()
+                }
             })
         }
     }
@@ -46,13 +56,18 @@ sealed class ToolbarAction {
         val hex: String,
         override val tooltip: String
     ) : ToolbarAction() {
-        override fun execute(editor: JTextPane, parent: JComponent) {
+        override fun execute(editor: JTextPane, parent: JComponent, context: CardLocContext?) {
             val attr = SimpleAttributeSet().apply { StyleConstants.setForeground(this, color) }
             editor.setCharacterAttributes(attr, false)
         }
-        override fun contextMenu(registry: CardLocRegistry, onChanged: () -> Unit) = JPopupMenu().apply {
+
+        override fun contextMenu(registry: CardLocRegistry, context: CardLocContext?, onChanged: () -> Unit) = JPopupMenu().apply {
+            val ctx = context ?: return@apply
             add(JMenuItem("Unpin").apply {
-                addActionListener { registry.unpinColor(PinnedColor(hex = hex)); onChanged() }
+                addActionListener {
+                    registry.unpinColor(ctx, PinnedColor(hex = hex))
+                    onChanged()
+                }
             })
         }
     }
@@ -63,10 +78,15 @@ sealed class ToolbarAction {
         val isVertical: Boolean = false,
         override val tooltip: String = "More Colors"
     ) : ToolbarAction() {
-        override fun execute(editor: JTextPane, parent: JComponent) {
-            val popup = ColorOverflowPopup(editor, extra, registry, isVertical) {
-                parent.firePropertyChange("pinnedColorsChanged", false, true)
+        override fun execute(editor: JTextPane, parent: JComponent, context: CardLocContext?) {
+            val ctx = context ?: return
+
+            // Logic moved here to ensure it's called
+            val popup = ColorOverflowPopup(editor, extra, registry, ctx, isVertical) {
+                // This triggers the UI refresh in the toolbar
+                parent.firePropertyChange("rebuildToolbar", false, true)
             }
+
             if (isVertical) popup.show(parent, parent.width, 0)
             else            popup.show(parent, 0, parent.height)
         }
@@ -80,7 +100,7 @@ sealed class ToolbarAction {
         val underline: Boolean = false,
         override val tooltip: String
     ) : ToolbarAction() {
-        override fun execute(editor: JTextPane, parent: JComponent) {
+        override fun execute(editor: JTextPane, parent: JComponent, context: CardLocContext?) {
             val current = editor.styledDocument.getCharacterElement(editor.selectionStart).attributes
             val next = SimpleAttributeSet()
             if (bold)      StyleConstants.setBold(next, !StyleConstants.isBold(current))
@@ -95,7 +115,7 @@ sealed class ToolbarAction {
         val label: String,
         override val tooltip: String
     ) : ToolbarAction() {
-        override fun execute(editor: JTextPane, parent: JComponent) =
+        override fun execute(editor: JTextPane, parent: JComponent, context: CardLocContext?) =
             wrapSelection(editor, tag)
     }
 
