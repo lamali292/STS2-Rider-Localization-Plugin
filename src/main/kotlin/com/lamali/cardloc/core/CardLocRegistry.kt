@@ -44,7 +44,9 @@ class CardLocRegistry(private val project: Project) {
             val config = gson.fromJson(json, CardLocConfig::class.java)
 
             // Ensure we have default colors if the config is empty
-            val finalConfig = if (config.pinnedColors.isEmpty()) {
+            val colorsFromDisk: List<PinnedColor>? = config.pinnedColors
+
+            val finalConfig = if (colorsFromDisk == null || colorsFromDisk.isEmpty()) {
                 config.copy(pinnedColors = defaultPinnedColors)
             } else config
 
@@ -80,10 +82,11 @@ class CardLocRegistry(private val project: Project) {
      * Helper to update pinned colors within a specific context.
      */
     fun pinColor(context: CardLocContext, color: PinnedColor): CardLocContext {
-        if (context.config.pinnedColors.any { it.tag == color.tag && it.hex == color.hex }) return context
-
+        val existingColors: List<PinnedColor>? = context.config.pinnedColors
+        val safeList = existingColors ?: emptyList()
+        if (safeList.any { it.tag == color.tag && it.hex == color.hex }) return context
         val updatedConfig = context.config.copy(
-            pinnedColors = context.config.pinnedColors + color
+            pinnedColors = safeList + color
         )
         val newContext = context.copy(config = updatedConfig)
         saveContext(newContext)
@@ -91,13 +94,16 @@ class CardLocRegistry(private val project: Project) {
     }
 
     fun unpinColor(context: CardLocContext, color: PinnedColor): CardLocContext {
-        val updatedConfig = context.config.copy(
-            pinnedColors = context.config.pinnedColors.filterNot { pinned ->
-                (color.tag != null && pinned.tag == color.tag) ||
-                        (color.hex != null && pinned.hex == color.hex)
-            }
-        )
+        val currentColors: List<PinnedColor>? = context.config.pinnedColors
+        val safeList = currentColors ?: emptyList()
+        val updatedList = safeList.filterNot { pinned ->
+            (color.tag != null && pinned.tag == color.tag) ||
+                    (color.hex != null && pinned.hex == color.hex)
+        }
+
+        val updatedConfig = context.config.copy(pinnedColors = updatedList)
         val newContext = context.copy(config = updatedConfig)
+
         saveContext(newContext)
         return newContext
     }

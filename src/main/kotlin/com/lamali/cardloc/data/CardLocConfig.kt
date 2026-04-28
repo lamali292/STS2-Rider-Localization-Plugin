@@ -4,5 +4,5 @@ data class CardLocConfig(
     val localizationBase: String,
     val projectId: String,
     val presets: List<CardLocPreset>,
-    val pinnedColors: List<PinnedColor> = emptyList()
+    val pinnedColors: List<PinnedColor>? = emptyList()
 )

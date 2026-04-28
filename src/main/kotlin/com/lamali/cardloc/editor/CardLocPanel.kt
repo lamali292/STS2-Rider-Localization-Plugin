@@ -80,7 +80,6 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         this.currentContext = context
         this.currentKey = key
         this.currentPreset = preset
-
         tagToolbar.setContext(context)
 
         header.setKey(key)
