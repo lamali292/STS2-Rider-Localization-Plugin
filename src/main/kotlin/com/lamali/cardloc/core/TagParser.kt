@@ -1,21 +1,29 @@
 ﻿package com.lamali.cardloc.core
 
+import com.lamali.cardloc.data.CardLocContext
 import com.lamali.cardloc.editor.ui.TagDefs
 import javax.swing.text.StyledDocument
 
+// In TagParser
 object TagParser {
+    fun createHandlers(context: CardLocContext?): List<TagHandler> {
+        val tagDefs = TagDefs.create(context)
+        HexColorHandler.setTagDefs(tagDefs) // Set the current tagDefs
 
-    private val handlers = listOf(
-        NamedColorHandler(TagDefs.color), // must come before HexColorHandler
-        HexColorHandler,
-        BoldHandler,
-        ItalicHandler,
-        UnderlineHandler,
-    )
+        return listOf(
+            NamedColorHandler(tagDefs.color),
+            HexColorHandler,
+            BoldHandler,
+            ItalicHandler,
+            UnderlineHandler,
+        )
+    }
 
-    private val serializer   = TagSerializer(handlers)
-    private val deserializer = TagDeserializer(handlers)
+    fun toGameString(doc: StyledDocument, context: CardLocContext?): String {
+        return TagSerializer(createHandlers(context)).serialize(doc)
+    }
 
-    fun toGameString(doc: StyledDocument): String = serializer.serialize(doc)
-    fun parseAndSet(doc: StyledDocument, raw: String?)  = deserializer.parse(doc, raw)
+    fun parseAndSet(doc: StyledDocument, raw: String?, context: CardLocContext?) {
+        TagDeserializer(createHandlers(context)).parse(doc, raw)
+    }
 }

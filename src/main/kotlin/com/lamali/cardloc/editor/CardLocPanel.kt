@@ -95,7 +95,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private fun addRow(suffix: String, value: String) {
-        val row = FieldRow(suffix, value) {
+        val row = FieldRow(suffix, value, currentContext) {
             preview.update(rows)
             scheduleAutoSave()
         }

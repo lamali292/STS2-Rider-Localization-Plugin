@@ -49,6 +49,13 @@ class NamedColorHandler(tags: List<TagDefs.TagDef>) : TagHandler {
 }
 
 object HexColorHandler : TagHandler {
+    private var currentTagDefs: TagDefs? = null
+
+    // Add method to set current tagDefs
+    fun setTagDefs(tagDefs: TagDefs) {
+        currentTagDefs = tagDefs
+    }
+
     override fun handles(tagName: String, isClosing: Boolean) =
         (!isClosing && tagName.startsWith("color=#")) || (isClosing && tagName == "color")
 
@@ -68,7 +75,10 @@ object HexColorHandler : TagHandler {
         val fg = StyleConstants.getForeground(attr)
         if (fg == Color.WHITE) return null
         if (fg == UIUtil.getTextFieldForeground()) return null
-        if (TagDefs.color.any { it.color == fg }) return null
+
+        // RESTORE THIS CHECK: If it's a known named color, let NamedColorHandler handle it
+        if (currentTagDefs?.color?.any { it.color == fg } == true) return null
+
         return "color=#%02X%02X%02X".format(fg.red, fg.green, fg.blue)
     }
 

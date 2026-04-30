@@ -5,6 +5,7 @@ import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import com.lamali.cardloc.core.TagParser
+import com.lamali.cardloc.data.CardLocContext
 import com.lamali.cardloc.editor.ui.*
 import java.awt.*
 import java.awt.datatransfer.DataFlavor
@@ -19,11 +20,12 @@ import javax.swing.text.StyledEditorKit
 class FieldRow(
     val fieldName: String,
     initialValue: String,
+    private val context: CardLocContext?,
     private val onUpdate: () -> Unit
 ) : JPanel(BorderLayout()) {
 
     val editor = AutoScalingEditor()
-    val text: String get() = TagParser.toGameString(editor.styledDocument)
+    val text: String get() = TagParser.toGameString(editor.styledDocument, context)
 
     init {
         background = UIUtil.getPanelBackground()
@@ -59,9 +61,11 @@ class FieldRow(
                 val caretAttr = SimpleAttributeSet(
                     doc.getCharacterElement(editor.caretPosition).attributes
                 )
+                // In FieldRow.kt - update the TransferHandler section:
                 val fg = StyleConstants.getForeground(caretAttr)
+                val tagDefs = TagDefs.create(context) // Get current tags
                 if (fg != Color.WHITE && fg != UIUtil.getTextFieldForeground()
-                    && TagDefs.color.none { it.color == fg }) {
+                    && tagDefs.color.none { it.color == fg }) {
                     StyleConstants.setForeground(caretAttr, UIUtil.getTextFieldForeground())
                 }
                 editor.replaceSelection("")
@@ -73,7 +77,7 @@ class FieldRow(
             override fun getSourceActions(c: JComponent) = COPY_OR_MOVE
         }
 
-        TagParser.parseAndSet(editor.styledDocument, initialValue)
+        TagParser.parseAndSet(editor.styledDocument, initialValue, context)
 
         val scroll = JScrollPane(editor).apply {
             val borderColor = JBColor.namedColor("Component.borderColor", JBColor(0xC9C9C9, 0x646464))

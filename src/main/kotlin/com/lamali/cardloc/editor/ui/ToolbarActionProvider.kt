@@ -11,10 +11,13 @@ object ToolbarActionProvider {
      * Now accepts an optional CardLocContext to resolve project-specific colors.
      */
     fun getActions(registry: CardLocRegistry, context: CardLocContext?, isVertical: Boolean = false): List<ToolbarAction> {
+        // Get dynamic tags from context
+        val tagDefs = TagDefs.create(context)
+
         // Get pinned colors from the specific context, or fall back to defaults if no context/config
         val pinnedList = context?.config?.pinnedColors ?: CardLocRegistry.defaultPinnedColors
 
-        val pinnedActions = pinnedList.mapNotNull { it.toToolbarAction() }
+        val pinnedActions = pinnedList.mapNotNull { it.toToolbarAction(tagDefs) }
         val pinnedTags = pinnedList.mapNotNull { it.tag }.toSet()
 
         return buildList {
@@ -26,13 +29,13 @@ object ToolbarActionProvider {
 
             // 3. More Colors Button (passing registry and filtered tags)
             add(ToolbarAction.MoreColors(
-                extra      = TagDefs.color.filter { it.tag !in pinnedTags },
+                extra      = tagDefs.color.filter { it.tag !in pinnedTags }, // Use dynamic tagDefs
                 registry   = registry,
                 isVertical = isVertical
             ))
 
             // 4. Style Tags (Bold, Italic, etc.)
-            TagDefs.format.forEach {
+            tagDefs.format.forEach { // Use dynamic tagDefs
                 add(ToolbarAction.ToggleFormat(
                     tag       = it.tag,
                     label     = it.label,
@@ -44,7 +47,7 @@ object ToolbarActionProvider {
             }
 
             // 5. Animation Tags
-            TagDefs.anim.forEach {
+            tagDefs.anim.forEach { // Use dynamic tagDefs
                 add(ToolbarAction.WrapTag(it.tag, "≈", "Apply ${it.label}"))
             }
         }
@@ -53,10 +56,10 @@ object ToolbarActionProvider {
     /**
      * Extension to convert data model to UI Action
      */
-    private fun PinnedColor.toToolbarAction(): ToolbarAction? {
+    private fun PinnedColor.toToolbarAction(tagDefs: TagDefs): ToolbarAction? { // Pass tagDefs
         return when {
             tag != null -> {
-                val def = TagDefs.map[tag] ?: return null
+                val def = tagDefs.map[tag] ?: return null // Use dynamic tagDefs
                 ToolbarAction.NamedColor(def.color ?: Color.WHITE, def.tag, def.label)
             }
             hex != null -> {
