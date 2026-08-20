@@ -66,15 +66,14 @@ class CardLocRegistry(private val project: Project) {
      */
     fun saveContext(context: CardLocContext) {
         val file = context.configFile
-        val json = gson.toJson(context.config)
+        val style = TextIO.styleOf(file)
+        val json = TextIO.apply(gson.toJson(context.config), style)
 
         Thread {
             runCatching {
                 file.writeText(json)
                 println("CardLoc: Saved config to ${file.absolutePath}")
-            }.onFailure {
-                it.printStackTrace()
-            }
+            }.onFailure { it.printStackTrace() }
         }.start()
     }
 

@@ -53,6 +53,9 @@ object CardLocService {
 
     private fun saveToFile(file: File, values: Map<String, String>) {
         file.parentFile?.mkdirs()
+
+        val style = TextIO.styleOf(file)
+
         val obj: JsonObject = runCatching {
             if (file.exists() && file.length() > 0) {
                 JsonParser.parseString(file.readText().trimStart('\uFEFF')).asJsonObject
@@ -62,7 +65,7 @@ object CardLocService {
         values.forEach { (k, v) -> obj.addProperty(k, v) }
 
         runCatching {
-            file.writeText(gson.toJson(obj))
+            file.writeText(TextIO.apply(gson.toJson(obj), style))
         }.onFailure { it.printStackTrace() }
     }
 }
