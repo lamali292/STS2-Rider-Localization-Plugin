@@ -51,10 +51,7 @@ class NamedColorHandler(tags: List<TagDefs.TagDef>) : TagHandler {
 object HexColorHandler : TagHandler {
     private var currentTagDefs: TagDefs? = null
 
-    // Add method to set current tagDefs
-    fun setTagDefs(tagDefs: TagDefs) {
-        currentTagDefs = tagDefs
-    }
+    fun setTagDefs(tagDefs: TagDefs) { currentTagDefs = tagDefs }
 
     override fun handles(tagName: String, isClosing: Boolean) =
         (!isClosing && tagName.startsWith("color=#")) || (isClosing && tagName == "color")
@@ -62,12 +59,14 @@ object HexColorHandler : TagHandler {
     override fun onOpen(tagName: String, attr: SimpleAttributeSet, state: ParseState) {
         runCatching { Color.decode(tagName.substring(6)) }.onSuccess { color ->
             state.colorStack.add(color)
+            state.hexColorStack.add(color)
             StyleConstants.setForeground(attr, color)
         }
     }
 
     override fun onClose(tagName: String, attr: SimpleAttributeSet, state: ParseState) {
         if (state.colorStack.size > 1) state.colorStack.removeAt(state.colorStack.size - 1)
+        if (state.hexColorStack.isNotEmpty()) state.hexColorStack.removeAt(state.hexColorStack.size - 1)
         StyleConstants.setForeground(attr, state.colorStack.last())
     }
 
@@ -75,12 +74,11 @@ object HexColorHandler : TagHandler {
         val fg = StyleConstants.getForeground(attr)
         if (fg == Color.WHITE) return null
         if (fg == UIUtil.getTextFieldForeground()) return null
-
-        // RESTORE THIS CHECK: If it's a known named color, let NamedColorHandler handle it
         if (currentTagDefs?.color?.any { it.color == fg } == true) return null
-
         return "color=#%02X%02X%02X".format(fg.red, fg.green, fg.blue)
     }
 
     override fun closeTagFor(openTag: String) = "color"
+
+    override fun acceptsClose(tagName: String, state: ParseState) = state.hexColorStack.isNotEmpty()
 }

@@ -5,7 +5,8 @@ import javax.swing.text.AttributeSet
 import javax.swing.text.SimpleAttributeSet
 
 data class ParseState(
-    val colorStack: MutableList<Color> = mutableListOf(Color.WHITE)
+    val colorStack: MutableList<Color> = mutableListOf(Color.WHITE),
+    val hexColorStack: MutableList<Color> = mutableListOf()   // only [color=#...] opens
 )
 
 interface TagHandler {
@@ -20,4 +21,8 @@ interface TagHandler {
 
     /** Given an open-tag string produced by this handler, returns the close-tag name */
     fun closeTagFor(openTag: String): String = openTag
+
+    /** Deserialization: for a closing tag this handler `handles`, return false to let it
+     *  fall through as literal text instead of being consumed. Default: always consume. */
+    fun acceptsClose(tagName: String, state: ParseState): Boolean = true
 }

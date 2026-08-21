@@ -25,13 +25,12 @@ class TagDeserializer(private val handlers: List<TagHandler>) {
                 else token.substring(1, token.length - 1)
 
                 val handler = handlers.firstOrNull { it.handles(tagName, isClosing) }
-                if (handler != null) {
+                if (handler != null && (!isClosing || handler.acceptsClose(tagName, state))) {
                     if (isClosing) handler.onClose(tagName, attr, state)
                     else handler.onOpen(tagName, attr, state)
                     return@forEach // handled — don't insert as text
                 }
             }
-            // Unrecognized tags (anim, etc.) fall through as literal text
             doc.insertString(doc.length, token, attr)
         }
     }
