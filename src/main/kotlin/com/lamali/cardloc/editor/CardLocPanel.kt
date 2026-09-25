@@ -184,6 +184,12 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         }
     }
 
+    fun renameCurrentKeyIfMatches(context: CardLocContext, oldKey: String, newKey: String, preset: CardLocPreset) {
+        if (currentContext?.baseDir != context.baseDir || currentKey != oldKey) return
+        val data = CardLocService.load(context, newKey, preset)
+        load(context, newKey, data, preset)
+    }
+
     private fun reload() {
         val context = currentContext ?: return
         val preset = currentPreset ?: return

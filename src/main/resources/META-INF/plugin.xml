@@ -16,6 +16,8 @@
                 icon="AllIcons.Actions.Edit"
                 factoryClass="com.lamali.cardloc.idea.CardLocToolWindowFactory"/>
 
+        <notificationGroup id="CardLoc" displayType="BALLOON"/>
+
     </extensions>
 
     <projectListeners>
@@ -23,4 +25,10 @@
                 class="com.lamali.cardloc.core.CardFileListener"
                 topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
+
+    <applicationListeners>
+        <listener
+                class="com.lamali.cardloc.core.CardRenameListener"
+                topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </applicationListeners>
 </idea-plugin>

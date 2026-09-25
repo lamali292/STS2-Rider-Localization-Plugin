@@ -51,6 +51,54 @@ object CardLocService {
         }
     }
 
+    data class RenameResult(val movedFields: Int, val languages: List<String>)
+
+    /**
+     * Moves every "<oldKey>.<field>" entry to "<newKey>.<field>", keeping its value,
+     * across every language directory under the localization root (not just eng).
+     * Never overwrites an entry that already exists under newKey.
+     */
+    fun renameKey(context: CardLocContext, oldKey: String, newKey: String, preset: CardLocPreset): RenameResult {
+        if (oldKey == newKey) return RenameResult(0, emptyList())
+
+        val engDir = File(context.baseDir, context.config.localizationBase)
+        val langRoot = engDir.parentFile ?: return RenameResult(0, emptyList())
+        val langDirs = langRoot.listFiles { f -> f.isDirectory } ?: return RenameResult(0, emptyList())
+
+        var movedFields = 0
+        val touchedLangs = mutableListOf<String>()
+
+        preset.fields.groupBy { it.file }.forEach { (fileName, fieldsInFile) ->
+            langDirs.forEach { langDir ->
+                val file = File(langDir, fileName)
+                if (!file.exists()) return@forEach
+
+                val jsonText = file.readText().trimStart('﻿')
+                val obj = runCatching { JsonParser.parseString(jsonText).asJsonObject }.getOrNull() ?: return@forEach
+
+                var changed = false
+                fieldsInFile.forEach { fieldDef ->
+                    val oldFullKey = "$oldKey.${fieldDef.name}"
+                    val newFullKey = "$newKey.${fieldDef.name}"
+                    if (obj.has(newFullKey)) return@forEach
+                    val value = obj.remove(oldFullKey) ?: return@forEach
+                    obj.add(newFullKey, value)
+                    changed = true
+                    movedFields++
+                }
+
+                if (changed) {
+                    val style = TextIO.styleOf(file)
+                    runCatching { file.writeText(TextIO.apply(gson.toJson(obj), style)) }
+                        .onFailure { it.printStackTrace() }
+                    if (langDir.name !in touchedLangs) touchedLangs.add(langDir.name)
+                }
+            }
+        }
+
+        return RenameResult(movedFields, touchedLangs)
+    }
+
     private fun saveToFile(file: File, values: Map<String, String>) {
         file.parentFile?.mkdirs()
 
