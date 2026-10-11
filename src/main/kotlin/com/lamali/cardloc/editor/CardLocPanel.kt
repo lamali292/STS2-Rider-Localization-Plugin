@@ -20,6 +20,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     private var currentKey = ""
     private var currentPreset: CardLocPreset? = null
     private var currentContext: CardLocContext? = null
+    private var knownDisk: Map<String, String> = emptyMap()
     private var activeRegistry: CardLocRegistry = project.getService(CardLocRegistry::class.java)
 
     private val autoSaveTimer = Timer(2000) { performAutoSave() }.apply { isRepeats = false }
@@ -80,6 +81,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         this.currentContext = context
         this.currentKey = key
         this.currentPreset = preset
+        this.knownDisk = existing.toMap()
         tagToolbar.setContext(context)
 
         header.setKey(key)
@@ -131,7 +133,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         val context = currentContext ?: return
         val preset = currentPreset ?: return
         val data = rows.associate { "$currentKey.${it.fieldName}" to it.text }
-        runCatching { CardLocService.save(context, data, preset) }
+        runCatching { CardLocService.save(context, data, preset) }.onSuccess { knownDisk = data }
     }
 
     private fun refreshUI() {
@@ -147,6 +149,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         val preset = currentPreset ?: return
         val data = rows.associate { "$currentKey.${it.fieldName}" to it.text }
         runCatching { CardLocService.save(context, data, preset) }
+            .onSuccess { knownDisk = data }
             .onFailure { e -> JOptionPane.showMessageDialog(this, "Error: ${e.message}") }
     }
 
@@ -188,6 +191,23 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         if (currentContext?.baseDir != context.baseDir || currentKey != oldKey) return
         val data = CardLocService.load(context, newKey, preset)
         load(context, newKey, data, preset)
+    }
+
+    /**
+     * Called when a localization json changed on disk (e.g. edited outside this panel).
+     * Reloads the shown card if its values differ from what we last loaded/saved, unless
+     * the user has unsaved edits pending - those win and get written by the next autosave.
+     */
+    fun reloadIfChangedOnDisk(changedPath: String) {
+        val context = currentContext ?: return
+        val preset = currentPreset ?: return
+        if (currentKey.isEmpty() || autoSaveTimer.isRunning) return
+        val locDir = java.io.File(context.baseDir, context.config.localizationBase).parentFile ?: return
+        if (!java.io.File(changedPath).canonicalPath.startsWith(locDir.canonicalPath)) return
+
+        val disk = runCatching { CardLocService.load(context, currentKey, preset) }.getOrNull() ?: return
+        if (disk == knownDisk) return
+        load(context, currentKey, disk, preset)
     }
 
     private fun reload() {

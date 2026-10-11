@@ -30,5 +30,8 @@
         <listener
                 class="com.lamali.cardloc.core.CardRenameListener"
                 topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+        <listener
+                class="com.lamali.cardloc.core.CardLocJsonChangeListener"
+                topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
     </applicationListeners>
 </idea-plugin>
