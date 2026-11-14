@@ -9,12 +9,15 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <projectService serviceImplementation="com.lamali.cardloc.core.CardLocRegistry"/>
+        <projectService serviceImplementation="com.lamali.cardloc.core.CardLocSettings"/>
 
         <toolWindow
                 id="StS2 Localization Editor"
                 anchor="right"
                 icon="AllIcons.Actions.Edit"
                 factoryClass="com.lamali.cardloc.idea.CardLocToolWindowFactory"/>
+
+        <postStartupActivity implementation="com.lamali.cardloc.core.CardLocCaretTracker"/>
 
         <notificationGroup id="CardLoc" displayType="BALLOON"/>
 

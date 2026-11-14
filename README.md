@@ -14,156 +14,18 @@ Not a priority to fix - this is a personal productivity tool and spending time m
 
 ## Configuration
 
-Add a `cardloc-presets.json` file to your project root.
+Settings are stored per project in `.idea/cardloc.xml` (commit it to share them with your team).
+Open a card class and use the settings button in the CardLoc tool window - or the "Configure" prompt
+that appears on an unconfigured project - to set:
 
 | Field | Description |
 |-------|-------------|
-| `projectId` | Your mod ID — the prefix that BaseLib creates (e.g. `Downfall`) |
-| `localizationBase` | Path to your localization files (e.g. `Downfall/localization/eng`) |
-| `markers` | Your custom classes for each preset type |
+| `Mod ID` | Your mod ID - the prefix that BaseLib creates (e.g. `Downfall`) |
+| `Localization Base` | Path to your localization files (e.g. `Downfall/localization/eng`) |
+| `Presets` | Which classes (markers) map to which localization fields. Sensible BaseLib defaults are built in |
 
-## Example -- cardloc-presets.json
+### Migrating from `cardloc-presets.json` (deprecated)
 
-It defines which classes the plugin recognises, as well as which localisation fields map to which JSON files.
-
-For example, if you have a custom card class, you need to add it there.
-
-You can also add relics or potions.
-
-<details>
-<summary>cardloc-presets.json</summary>
-  
-```json
-{
-  "localizationBase": "Downfall/localization/eng",
-  "projectId": "Downfall",
-  "presets": [
-    {
-      "id": "card",
-      "markers": [
-        "CustomCardModel"
-      ],
-      "fields": [
-        {
-          "name": "title",
-          "file": "cards.json",
-          "optional": false
-        },
-        {
-          "name": "description",
-          "file": "cards.json",
-          "optional": false
-        },
-        {
-          "name": "selectionScreenPrompt",
-          "file": "cards.json",
-          "optional": true
-        }
-      ]
-    },
-    {
-      "id": "power",
-      "markers": [
-        "CustomPowerModel"
-      ],
-      "fields": [
-        {
-          "name": "title",
-          "file": "powers.json",
-          "optional": false
-        },
-        {
-          "name": "description",
-          "file": "powers.json",
-          "optional": false
-        },
-        {
-          "name": "smartDescription",
-          "file": "powers.json",
-          "optional": true
-        }
-      ]
-    },
-    {
-      "id": "character",
-      "markers": [
-        "CustomCharacterModel"
-      ],
-      "fields": [
-        {
-          "name": "title",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "titleObject",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "pronounSubject",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "pronounPossessive",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "pronounObject",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "possessiveAdjective",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "goldMonologue",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "eventDeathPrevention",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "description",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "cardsModifierTitle",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "cardsModifierDescription",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "banter.dead.endTurnPing",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "banter.alive.endTurnPing",
-          "file": "characters.json",
-          "optional": false
-        },
-        {
-          "name": "aromaPrinciple",
-          "file": "characters.json",
-          "optional": false
-        }
-      ]
-    }
-  ]
-}
-```
-  
-</details>
+Each `cardloc-presets.json` is imported once into the project settings the first time a class below its
+folder is opened (one settings entry per folder, so multi-mod solutions keep separate configs).
+After that the file is ignored and can be deleted.

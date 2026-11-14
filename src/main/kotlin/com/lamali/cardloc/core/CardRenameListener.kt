@@ -47,9 +47,8 @@ class CardRenameListener : BulkFileListener {
         val context = registry.getContextForFile(file) ?: return
 
         val source = runCatching { String(file.contentsToByteArray()) }.getOrNull() ?: return
-        val (preset, detectedClassName) = context.detectWithClass(source) ?: return
-        // File got renamed but its body doesn't match the new name (e.g. unrelated file move) - skip.
-        if (detectedClassName != newClassName) return
+        // File got renamed but no card class matches the new name (e.g. unrelated file move) - skip.
+        val preset = context.detectAll(source).firstOrNull { it.className == newClassName }?.preset ?: return
 
         val oldKey = CardLocService.toKey(context, oldClassName) ?: return
         val newKey = CardLocService.toKey(context, newClassName) ?: return

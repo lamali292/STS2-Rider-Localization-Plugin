@@ -1,4 +1,4 @@
-﻿package com.lamali.cardloc.editor.settings
+package com.lamali.cardloc.editor.settings
 
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBSplitter
@@ -20,6 +20,22 @@ class PresetDetailPanel(private val project: Project) : JPanel(BorderLayout()) {
         putClientProperty("ActionMap.LocalEventHandling", true)
     }
 
+    private val inheritBox = JCheckBox("Inherit from project default").apply {
+        toolTipText = "Build on the project-wide preset with this ID: below, list only what this folder adds"
+    }
+    private val inheritInfo = JBLabel().apply { foreground = JBUI.CurrentTheme.ContextHelp.FOREGROUND }
+
+    /** Supplies the project-default presets (set by the dialog). */
+    var defaultsLookup: () -> List<CardLocPreset> = { emptyList() }
+
+    /** True while the project defaults themselves are edited: no inheritance there. */
+    var defaultsMode: Boolean = false
+        set(value) {
+            field = value
+            inheritBox.isVisible = !value
+            inheritInfo.isVisible = !value
+        }
+
     private val markersModel = DefaultListModel<String>()
     private val fieldsTree = FieldMappingTree(project)
 
@@ -27,7 +43,10 @@ class PresetDetailPanel(private val project: Project) : JPanel(BorderLayout()) {
         val topPanel = JPanel(FlowLayout(FlowLayout.LEFT, 10, 10)).apply {
             add(JBLabel("Preset ID:"))
             add(idField)
+            add(inheritBox)
+            add(inheritInfo)
         }
+        inheritBox.addActionListener { toggleInherit() }
 
         val splitter = JBSplitter(true, 0.3f).apply {
             firstComponent = createMarkersSection()
@@ -49,13 +68,54 @@ class PresetDetailPanel(private val project: Project) : JPanel(BorderLayout()) {
         preset?.markers?.forEach { markersModel.addElement(it) }
 
         fieldsTree.loadFields(preset?.fields ?: emptyList())
+
+        inheritBox.isSelected = preset?.base != null
+        inheritBox.isEnabled = preset != null
+        updateInheritInfo()
+    }
+
+    /** Switching on keeps only this folder's additions; switching off copies the inherited parts in. */
+    private fun toggleInherit() {
+        val cur = getCurrentPresetState()
+        val d = defaultsLookup().firstOrNull { it.id == cur.id }
+        if (d == null) {
+            updateInheritInfo()
+            return
+        }
+        val next = if (inheritBox.isSelected) {
+            cur.copy(
+                markers = cur.markers - d.markers.toSet(),
+                fields = cur.fields.filterNot { f -> d.fields.any { it.file == f.file && it.name == f.name } },
+                base = d.id
+            )
+        } else {
+            cur.copy(base = d.id).resolve(defaultsLookup()).copy(base = null)
+        }
+        loadPreset(next)
+    }
+
+    private fun updateInheritInfo() {
+        val id = idField.text.trim()
+        val d = defaultsLookup().firstOrNull { it.id == id }
+        inheritInfo.text = when {
+            !inheritBox.isSelected -> ""
+            d == null -> "No project default named '$id' - nothing is inherited"
+            else -> "Inherits ${d.markers.size} marker(s) and ${d.fields.size} field(s); the lists below are additions only"
+        }
+        inheritInfo.toolTipText = if (inheritBox.isSelected && d != null) {
+            "<html>Inherited markers: ${d.markers.joinToString(", ")}<br>" +
+                d.fields.groupBy { it.file }.entries.joinToString("<br>") { (file, fs) ->
+                    "$file: " + fs.joinToString(", ") { it.name + if (it.optional) "?" else "" }
+                } + "</html>"
+        } else null
     }
 
     fun getCurrentPresetState(): CardLocPreset {
         return CardLocPreset(
             id = idField.text.trim(),
             markers = markersModel.elements().toList(),
-            fields = fieldsTree.getFlatFields()
+            fields = fieldsTree.getFlatFields(),
+            base = if (inheritBox.isSelected && !defaultsMode) idField.text.trim() else null
         )
     }
 

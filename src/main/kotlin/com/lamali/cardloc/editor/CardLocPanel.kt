@@ -1,8 +1,12 @@
-﻿package com.lamali.cardloc.editor
+package com.lamali.cardloc.editor
 
+import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBSplitter
 import com.lamali.cardloc.core.CardLocRegistry
+import com.lamali.cardloc.core.CardLocSelector
 import com.lamali.cardloc.core.CardLocService
 import com.lamali.cardloc.data.CardLocContext
 import com.lamali.cardloc.data.CardLocPreset
@@ -20,6 +24,9 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     private var currentKey = ""
     private var currentPreset: CardLocPreset? = null
     private var currentContext: CardLocContext? = null
+    /** Selected language directory name; null = the primary one (the configured localization base). */
+    private var language: String? = null
+    private var currentFile: com.intellij.openapi.vfs.VirtualFile? = null
     private var knownDisk: Map<String, String> = emptyMap()
     private var activeRegistry: CardLocRegistry = project.getService(CardLocRegistry::class.java)
 
@@ -28,7 +35,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     private val autoSaveDelay = 1500L
 
     // UI Components
-    private val header = CardLocHeader(::reload, ::promptAddField, ::save, ::openPresetEditor)
+    private val header = CardLocHeader(::reload, ::promptAddField, ::save, ::openPresetEditor, ::pickClass, ::pickLanguage, ::languageHasEntry)
     private val preview = CardLocPreview()
     private val tagToolbar = TagToolbar(activeRegistry)
     private val fieldsPanel = JPanel(GridBagLayout()).apply { background = UI.bg }
@@ -81,8 +88,15 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         this.currentContext = context
         this.currentKey = key
         this.currentPreset = preset
-        this.knownDisk = existing.toMap()
         tagToolbar.setContext(context)
+
+        // The selector hands us the primary language's values; for another language read that one.
+        val languages = CardLocService.languages(context)
+        if (language != null && language !in languages) language = null
+        header.setLanguages(languages, language ?: languages.firstOrNull() ?: "")  // refined below once the values are known
+        val existing = if (language != null) CardLocService.load(context, key, preset, language) else existing
+        this.knownDisk = existing.toMap()
+        header.setLanguages(languages, language ?: languages.firstOrNull() ?: "", selectedHasEntry = existing.isNotEmpty())
 
         header.setKey(key)
         fieldsPanel.removeAll()
@@ -112,6 +126,36 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         fieldsPanel.add(row, gbc)
     }
 
+    /** Shows the card classes of [file] in the header dropdown, with [selected] chosen. */
+    fun setClassChoices(file: com.intellij.openapi.vfs.VirtualFile, names: List<String>, selected: String) {
+        currentFile = file
+        header.setClasses(names, selected)
+    }
+
+    /** Whether the shown card has any value in [lang]; used to sort / grey out the language list. */
+    private fun languageHasEntry(lang: String): Boolean {
+        val context = currentContext ?: return true
+        val preset = currentPreset ?: return true
+        val primary = CardLocService.languages(context).firstOrNull()
+        return runCatching {
+            CardLocService.load(context, currentKey, preset, if (lang == primary) null else lang).isNotEmpty()
+        }.getOrDefault(true)
+    }
+
+    private fun pickLanguage(name: String) {
+        val context = currentContext ?: return
+        saveCurrentContent() // flush edits to the language we are leaving
+        val primary = CardLocService.languages(context).firstOrNull()
+        language = if (name == primary) null else name
+        reload()
+    }
+
+    private fun pickClass(name: String) {
+        val file = currentFile ?: return
+        val source = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(file)?.text ?: return
+        CardLocSelector.show(project, file, source, CardLocSelector.Target.ClassName(name), force = true)
+    }
+
     fun saveCurrentContent() {
         if (currentKey.isNotEmpty() && currentPreset != null) {
             autoSave()
@@ -129,11 +173,65 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         } else autoSaveTimer.restart()
     }
 
+    /** The rows whose text differs from what is on disk (a missing entry counts as ""). */
+    private fun changedRows(): Map<String, String> =
+        rows.associate { "$currentKey.${it.fieldName}" to it.text }
+            .filter { (key, text) -> text != (knownDisk[key] ?: "") }
+
     private fun autoSave() {
+        val changed = changedRows()
+        if (changed.isEmpty()) return // nothing edited: never write (or create empty entries) just by looking
+        persist(changed, force = false, interactive = false)
+    }
+
+    /**
+     * Writes [changed] to disk. Keys that were modified elsewhere since this card was loaded are not
+     * overwritten; the user is told and can choose which version to keep.
+     */
+    private fun persist(changed: Map<String, String>, force: Boolean, interactive: Boolean) {
         val context = currentContext ?: return
         val preset = currentPreset ?: return
-        val data = rows.associate { "$currentKey.${it.fieldName}" to it.text }
-        runCatching { CardLocService.save(context, data, preset) }.onSuccess { knownDisk = data }
+        val expected = changed.keys.associateWith { knownDisk[it] ?: "" }
+
+        runCatching { CardLocService.save(context, changed, preset, language, expected, force) }
+            .onSuccess { result ->
+                val written = changed.filterKeys { it !in result.conflicts }
+                knownDisk = (knownDisk + written).filterValues { it.isNotEmpty() }
+                if (result.conflicts.isNotEmpty()) notifyConflict(changed.filterKeys { it in result.conflicts }, interactive)
+                else lastConflict = emptySet()
+            }
+            .onFailure { e ->
+                if (interactive) JOptionPane.showMessageDialog(this, "Error: ${e.message}")
+                else notifyProblem("Could not save: ${e.message}")
+            }
+    }
+
+    private var lastConflict: Set<String> = emptySet()
+    private var lastProblem: String? = null
+
+    private fun notifyConflict(mine: Map<String, String>, interactive: Boolean) {
+        if (!interactive && mine.keys == lastConflict) return // already told the user about exactly these
+        lastConflict = mine.keys
+        val n = mine.size
+        NotificationGroupManager.getInstance().getNotificationGroup("CardLoc")
+            .createNotification(
+                "CardLoc: changed on disk",
+                "$n field(s) of $currentKey were edited elsewhere since they were loaded, so your edit was not written.",
+                NotificationType.WARNING
+            )
+            .addAction(NotificationAction.createSimpleExpiring("Overwrite with mine") {
+                persist(mine, force = true, interactive = true)
+            })
+            .addAction(NotificationAction.createSimpleExpiring("Use the file's version") { reload() })
+            .notify(project)
+    }
+
+    private fun notifyProblem(message: String) {
+        if (message == lastProblem) return
+        lastProblem = message
+        NotificationGroupManager.getInstance().getNotificationGroup("CardLoc")
+            .createNotification("CardLoc", message, NotificationType.WARNING)
+            .notify(project)
     }
 
     private fun refreshUI() {
@@ -145,12 +243,9 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private fun save() {
-        val context = currentContext ?: return
-        val preset = currentPreset ?: return
-        val data = rows.associate { "$currentKey.${it.fieldName}" to it.text }
-        runCatching { CardLocService.save(context, data, preset) }
-            .onSuccess { knownDisk = data }
-            .onFailure { e -> JOptionPane.showMessageDialog(this, "Error: ${e.message}") }
+        val changed = changedRows()
+        if (changed.isEmpty()) return
+        persist(changed, force = false, interactive = true)
     }
 
     private fun promptAddField() {
@@ -169,18 +264,18 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
 
     private fun openPresetEditor() {
-        val context = currentContext ?: return
-        val dialog = CardLocConfigDialog(project, context.configFile)
+        val context = currentContext ?: activeRegistry.contextForActiveFile() ?: return
+        val dialog = CardLocConfigDialog(project, context, activeRegistry)
 
         if (dialog.showAndGet()) {
-            val updatedContext = activeRegistry.loadContext(context.configFile) ?: return
+            val updatedContext = dialog.savedContext ?: return
 
             currentPreset?.let { p ->
-                val newPreset = updatedContext.config.presets.find { it.id == p.id }
-                    ?: updatedContext.config.presets.firstOrNull()
+                val newPreset = updatedContext.presets.find { it.id == p.id }
+                    ?: updatedContext.presets.firstOrNull()
 
                 if (newPreset != null) {
-                    val data = CardLocService.load(updatedContext, currentKey, newPreset)
+                    val data = CardLocService.load(updatedContext, currentKey, newPreset, language)
                     load(updatedContext, currentKey, data, newPreset)
                 }
             }
@@ -189,7 +284,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     fun renameCurrentKeyIfMatches(context: CardLocContext, oldKey: String, newKey: String, preset: CardLocPreset) {
         if (currentContext?.baseDir != context.baseDir || currentKey != oldKey) return
-        val data = CardLocService.load(context, newKey, preset)
+        val data = CardLocService.load(context, newKey, preset, language)
         load(context, newKey, data, preset)
     }
 
@@ -202,10 +297,10 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
         val context = currentContext ?: return
         val preset = currentPreset ?: return
         if (currentKey.isEmpty() || autoSaveTimer.isRunning) return
-        val locDir = java.io.File(context.baseDir, context.config.localizationBase).parentFile ?: return
+        val locDir = java.io.File(context.baseDir, context.localizationBase).parentFile ?: return
         if (!java.io.File(changedPath).canonicalPath.startsWith(locDir.canonicalPath)) return
 
-        val disk = runCatching { CardLocService.load(context, currentKey, preset) }.getOrNull() ?: return
+        val disk = runCatching { CardLocService.load(context, currentKey, preset, language) }.getOrNull() ?: return
         if (disk == knownDisk) return
         load(context, currentKey, disk, preset)
     }
@@ -213,7 +308,7 @@ class CardLocPanel(private val project: Project) : JPanel(BorderLayout()) {
     private fun reload() {
         val context = currentContext ?: return
         val preset = currentPreset ?: return
-        runCatching { CardLocService.load(context, currentKey, preset) }
+        runCatching { CardLocService.load(context, currentKey, preset, language) }
             .onSuccess { load(context, currentKey, it, preset) }
     }
 }

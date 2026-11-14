@@ -1,9 +1,10 @@
-﻿package com.lamali.cardloc.editor.settings
+package com.lamali.cardloc.editor.settings
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
 import com.intellij.ui.treeStructure.Tree
 import com.lamali.cardloc.data.FieldDef
+import com.lamali.cardloc.data.withJsonSuffix
 import java.awt.BorderLayout
 import java.awt.event.ActionEvent
 import java.awt.event.MouseAdapter
@@ -180,7 +181,7 @@ class FieldMappingTree(private val project: Project) : JPanel(BorderLayout()) {
             val fileNode = root.getChildAt(i) as? FieldMutableNode ?: continue
             for (j in 0 until fileNode.childCount) {
                 val fieldNode = fileNode.getChildAt(j) as? FieldMutableNode ?: continue
-                result.add(fieldNode.field.copy(file = fileNode.field.file))
+                result.add(fieldNode.field.copy(file = fileNode.field.file.withJsonSuffix()))
             }
         }
         return result

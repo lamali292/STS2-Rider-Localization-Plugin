@@ -1,10 +1,7 @@
 package com.lamali.cardloc.core
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
-import com.intellij.openapi.wm.ToolWindowManager
-import com.lamali.cardloc.editor.CardLocPanel
 
 class CardFileListener : FileEditorManagerListener {
 
@@ -13,33 +10,14 @@ class CardFileListener : FileEditorManagerListener {
         if (file.extension != "cs" && file.extension != "kt") return
 
         val project = event.manager.project
-        val registry = project.getService(CardLocRegistry::class.java)
-
-        ApplicationManager.getApplication().executeOnPooledThread {
-            val context = registry.getContextForFile(file) ?: return@executeOnPooledThread
-
-            val source = runCatching {
-                String(file.contentsToByteArray())
-            }.getOrNull() ?: return@executeOnPooledThread
-
-            val result = context.detectWithClass(source) ?: return@executeOnPooledThread
-            val (preset, className) = result
-
-            val key = CardLocService.toKey(context, className) ?: return@executeOnPooledThread
-            val existing = CardLocService.load(context, key, preset)
-
-            ApplicationManager.getApplication().invokeLater {
-                val tw = ToolWindowManager.getInstance(project)
-                    .getToolWindow("StS2 Localization Editor") ?: return@invokeLater
-
-                if (tw.isVisible) {
-                    val panel = tw.contentManager.selectedContent?.component
-                            as? CardLocPanel ?: return@invokeLater
-
-                    panel.saveCurrentContent()
-                    panel.load(context, key, existing, preset)
-                }
-            }
+        val editor = event.manager.selectedTextEditor?.takeIf {
+            com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getFile(it.document) == file
         }
+
+        // Prefer the live document (unsaved edits) and the caret position when we have an editor.
+        val source = editor?.document?.text ?: runCatching { String(file.contentsToByteArray()) }.getOrNull() ?: return
+        val target = editor?.let { CardLocSelector.Target.Offset(it.caretModel.offset) } ?: CardLocSelector.Target.First
+
+        CardLocSelector.show(project, file, source, target, force = true)
     }
 }
